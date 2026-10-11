@@ -4,9 +4,7 @@
 
 [![ci](https://github.com/yktsnet/codeview/actions/workflows/ci.yml/badge.svg)](https://github.com/yktsnet/codeview/actions/workflows/ci.yml)
 
-手元の git リポジトリ群と、その GitHub Issue を静的 HTML にまとめ、自分だけが読めるコードブラウザとして Cloudflare Pages + Access で配信する。
-
-GitHub の web やモバイルアプリは、コードを読むだけの用途には重い。codeview は手元のリポの HEAD を JavaScript なしでも読めるページに変換し、外出先のスマホからでも軽く読めるようにする。個人の GitHub と仕事の GitHub など、2つまでのアカウントのリポと Issue を1つのサイトに並べられる。
+手元の git リポジトリ群と、その GitHub Issue を静的 HTML にまとめ、自分だけが読めるコードブラウザとして Cloudflare Pages + Access で配信する。JavaScript なしでも読めるので、外出先のスマホからでも軽く読める。
 
 ## Quick Start
 
@@ -52,22 +50,9 @@ codeview serve   # http://localhost:8787 で確認する
 | `[publish]` | 配信先の `remote`（既定 `origin`）と `branch`（既定 `deploy`） |
 | `[plugins]` | 読み込む拡張（`modules`）。拡張ごとの設定は `[plugins.<モジュール名の末尾>]` に置く |
 
-アカウントを2つ使う例。仕事用の GitHub には SSH の Host 別名（`github-work`）で繋いでいるとする。
+2つ目のアカウントは `[[accounts]]` をもう1つ足す。仕事用の GitHub に SSH の Host 別名（`github-work`）で繋いでいる例。
 
 ```toml
-[[roots]]
-group = "own"
-children = "~/github"
-
-[[roots]]
-group = "work"
-children = "~/work"
-
-[scan]
-skip_dirs = ["archive"]
-exclude_prefixes = ["secrets/"]
-skip_exts = [".png", ".jpg"]
-
 [[accounts]]
 name = "me"
 hosts = ["github.com"]
@@ -82,16 +67,13 @@ gh_config_dir = "~/.config/gh-work"   # 仕事のアカウントで gh auth logi
 
 ## What You Get
 
-- **コード**: 各リポの HEAD のファイルごとにページを作り、Pygments でハイライトする。Markdown は描画し、ディレクトリに README があれば一覧の下に出す。未コミットの変更・履歴・ブランチは出さない
-- **Issue**: アカウントごとに未消化の Issue を1本の一覧（`/issues/<account>/`）にまとめ、Issue ごとに本文とコメントを古い順に並べたページを作る。本文中の `#N` は、同じリポの未消化の Issue ならこのサイトのページへのリンクになる。GitHub の本文とコメントは他人の文章として扱い、生の HTML は文字として出す
-- **コピー**: ファイルページのファイル名で手元の絶対パス、行番号で `パス:行番号`、`Copy file` で全文をコピーする。スマホで見つけた箇所をそのまま端末やエージェントに渡せる
-- **表示幅**: Markdown 約 900px、Issue 約 1000px、コード約 1280px で止まる。760px 以下はスマホ向けの1カラムになる
-
-Issue の取得に失敗したリポがあっても build は止まらず、一覧の上に `fetch failed: <repo>` と出す。
+- **コード**: 各リポの HEAD のファイルごとにページを作り、Pygments でハイライトする。Markdown は描画し、ディレクトリに README があれば一覧の下に出す
+- **Issue**: アカウントごとに未消化の Issue を1本の一覧（`/issues/<account>/`）にまとめ、Issue ごとに本文とコメントを古い順に並べたページを作る。本文中の `#N` は、同じリポの未消化の Issue ならこのサイトのページへのリンクになる。GitHub の本文とコメントは他人の文章として扱い、生の HTML は文字として出す。取得に失敗したリポがあっても build は止まらず、一覧の上に `fetch failed: <repo>` と出す
+- **コピー**: ファイルページから、手元の絶対パス・`パス:行番号`・全文をコピーできる。スマホで見つけた箇所をそのまま端末やエージェントに渡せる
 
 ## Extensions
 
-本体が出すのはコードと Issue だけで、それ以外は `[plugins] modules` に並べた Python のモジュールが足す。拡張は設定ファイルと同じディレクトリに置けば読める。読み込みに失敗したら、生成を始める前に止まる。
+本体が出すのはコードと Issue だけで、それ以外は `[plugins] modules` に並べた Python のモジュールが足す。設定ファイルと同じディレクトリに置けば読める。読み込みに失敗したら、生成を始める前に止まる。
 
 拡張は次の関数のうち、必要なものだけを持つ。
 
@@ -130,12 +112,10 @@ flowchart TD
 ```sh
 codeview publish               # build して deploy ブランチへ push する
 codeview publish --dry-run     # コミットを作るだけで push しない
-codeview publish --if-changed  # 前回の配信から変化が無ければ何もしない
+codeview publish --if-changed  # 前回から変化が無ければ何もしない（定期実行向け）
 ```
 
 `publish` は `public/` と `functions/` だけを載せた親の無い単一コミットを作り、`[publish]` の branch へ force push する。作業ツリーと index には触らない。Cloudflare Pages はそのブランチを見ており、push が配信を起こす。日常の配信に Cloudflare の API トークンは要らない。
-
-`--if-changed` は、走査対象の HEAD・GitHub の open な Issue の更新・配信するリポの HEAD・codeview の版から指紋を作り、前回と同じなら build も push もしない。cron や launchd で毎時回すのに向く。未コミットの変更は指紋に出ないので、手元の試し書きが配信されることはない。
 
 ### 初回だけ: Cloudflare の設定
 
@@ -151,29 +131,19 @@ codeview cf-status                          # プロジェクトと直近のデ�
 - Cloudflare の Pages に GitHub アカウントを連携済みで、配信するリポを読める
 - API トークンに Pages・DNS・Access（アプリとポリシー）の編集権限がある
 
-`cf-setup` は Access のポリシーに `git config user.email` のメールアドレスだけを許可する。何度流しても既存のものは作り直さない。最後に出る3点（ログインを求められる・`*.pages.dev` が 404・ログイン後に読める）をプライベートウィンドウで確かめてから使う。
+`cf-setup` は `git config user.email` のメールアドレスだけを許可する。最後に出る確認（ログインを求められる・`*.pages.dev` が 404・ログイン後に読める）をプライベートウィンドウで済ませてから使う。
 
 `<project>.pages.dev` は Access で保護できない。build が書く `functions/_middleware.js` がこのホストへのリクエストに 404 を返して塞いでいる。
 
 ## Scope
 
-- 見るのは各リポの HEAD だけ。履歴・ブランチ・タグ・差分のページは作らない
+- 見るのは各リポの HEAD だけ。未コミットの変更・履歴・ブランチ・タグ・差分は出ない
 - 512 KiB を超えるファイルとバイナリは中身を出さない
 - 配信先は Cloudflare Pages + Access だけを想定する。生成物は静的ファイルなので他にも置けるが、`cf-setup` と `_middleware.js` は Cloudflare 向け
 - Cloudflare Pages の上限は 1 デプロイ 20,000 ファイル。build は超えたら警告し、`publish` は push せずに止まる
 - アカウントは2つまで
 
 外から見える振る舞いのうち、テストで固定しているものは [保証台帳](docs/guarantees.md) にある。
-
-## Tech Stack
-
-| Layer | Technology | Reason |
-|---|---|---|
-| 生成器 | Python（標準ライブラリ + Pygments + Markdown） | 依存を2つに絞り、Nix でも pip でもそのまま入る。HTTP も `urllib` で足りる |
-| リポの読み出し | `git ls-tree` / `git cat-file --batch` | 作業ツリーではなく HEAD を読むので、未コミットの変更が混ざらない |
-| Issue の取得 | `gh` CLI | 認証を `gh` に任せ、アカウントごとに config dir を切り替えるだけで2つのアカウントを扱える |
-| 配信 | Cloudflare Pages + Access | 静的ファイルの配信と、本人だけに絞る認証を同じ場所で持てる |
-| 配布 | `pyproject.toml` と Nix flake | PyPI には出さない（`codeview` の名前は使用済み） |
 
 ## Design Decisions
 
@@ -188,8 +158,6 @@ codeview cf-status                          # プロジェクトと直近のデ�
 nix develop
 nix develop -c pytest -q
 ```
-
-テストは見本のリポ群・設定・偽の `gh` を一時ディレクトリに作り、生成器を別プロセスで回す。ネットワークにも Cloudflare にも出ない。
 
 ## License
 
