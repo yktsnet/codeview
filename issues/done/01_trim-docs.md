@@ -1,3 +1,39 @@
+## PR記録: docs: README と周辺の md から重複と細部を削る
+issue: 01 (01_trim-docs.md)
+PR: https://github.com/yktsnet/codeview/pull/6
+
+## 変更内容
+- README.md / README.en.md: 同じ構成のまま縮める（196 → 164 行）
+  - 概要の2段落目をコアメッセージの1文に畳む
+  - 「HEAD だけ・未コミットは出ない」を Scope の1か所に寄せる
+  - Tech Stack の H2 を消す（理由は Design Decisions と Scope に残る）
+  - 表示幅の箇条、`--if-changed` の指紋の内訳、`cf-setup` の細部、テストの説明を削る
+  - 2アカウントの例を `[[accounts]]` の2ブロックだけにする
+  - `ctx` の説明を1文にする
+- CLAUDE.md: 「アーキテクチャの要点」の節と、検証手段のテスト説明を消す（`context/` と重複）
+- docs/guarantees.md: About 末尾の、参照先の無い一文を消す
+
+## 保証
+なし（ドキュメントのみ。振る舞いを変えない。台帳は About の注記だけを直し、保証の本文と表には触れない）
+
+## 静的確認結果
+- README.md と README.en.md の H2 の並びが一致
+- 「残すもの」がすべて残っている
+- `nix develop -c pytest -q`: 24 passed
+
+## 確認者の判定
+| 確認 | 判定 |
+|---|---|
+| README.md と README.en.md の H2 の並びが一致し、日英で同じ事実を述べている | 合 |
+| README.md が 120 行以下 | 否（164 行）。user の指示で必須としない。残すべきものを優先した |
+| 「残すもの」がすべて残っている | 合 |
+| `nix develop -c pytest -q` が通る | 合（24 passed） |
+| `ctx` の説明を1文にする | 合 |
+| 保証（なし） | 合 |
+| 範囲の外 | なし |
+
+---
+
 ## README と周辺の md から重複と細部を削る
 id: 01
 branch-slug: trim-docs
