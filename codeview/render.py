@@ -1,0 +1,185 @@
+"""render — Syntax highlighting and Markdown/Mermaid rendering."""
+
+from __future__ import annotations
+
+import html
+import re
+from urllib.parse import urlsplit
+
+import markdown
+from markdown.extensions import Extension
+from markdown.treeprocessors import Treeprocessor
+from pygments import highlight
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import get_lexer_for_filename, guess_lexer
+from pygments.util import ClassNotFound
+
+MAX_BYTES = 512 * 1024
+HIGHLIGHT_MAX_BYTES = 96 * 1024
+CODE_STYLE = "github-dark"
+
+MERMAID_BLOCK = re.compile(r"```mermaid\s*\n(.*?)```", re.DOTALL)
+
+
+def is_text(data: bytes) -> bool:
+    return b"\0" not in data
+
+
+def human(n: int) -> str:
+    if n < 1024:
+        return f"{n} B"
+    if n < 1024 * 1024:
+        return f"{n / 1024:.1f} KB"
+    return f"{n / 1024 / 1024:.1f} MB"
+
+
+def render_code(path: str, data: bytes) -> str:
+    text = data.decode("utf-8", "replace")
+    if len(data) > HIGHLIGHT_MAX_BYTES:
+        return '<pre class="plain">' + html.escape(text) + "</pre>"
+    try:
+        lexer = get_lexer_for_filename(path, text)
+    except ClassNotFound:
+        try:
+            lexer = guess_lexer(text)
+        except ClassNotFound:
+            lexer = None
+    if lexer is None:
+        return '<pre class="plain">' + html.escape(text) + "</pre>"
+    out = highlight(
+        text, lexer, HtmlFormatter(cssclass="hl", linenos="inline", linespans="ln")
+    )
+    return out.replace("\n</span>", "</span>")
+
+
+# リンクに残してよいスキーム。javascript: や data: は外す
+_LINK_SCHEMES = {"", "http", "https", "mailto"}
+
+
+def _is_github(host: str) -> bool:
+    host = host.lower()
+    return host == "github.com" or host.endswith((".github.com", ".githubusercontent.com"))
+
+
+class _Sanitize(Treeprocessor):
+    """画像は文字に、危ういリンクと GitHub へのリンクはリンクでない文字にする。"""
+
+    def run(self, root):
+        for el in root.iter():
+            if el.tag == "img":
+                alt = el.get("alt") or "image"
+                el.attrib.clear()
+                el.tag = "span"
+                el.set("class", "noimg")
+                el.text = f"[{alt}]"
+            elif el.tag == "a" and not self._keep(el.get("href", "")):
+                el.attrib.clear()
+                el.tag = "span"
+
+    @staticmethod
+    def _keep(href: str) -> bool:
+        # ブラウザは制御文字や空白を無視して解釈するので、先に落としてから判定する
+        parts = urlsplit(re.sub(r"[\x00-\x20]", "", href))
+        if parts.scheme.lower() not in _LINK_SCHEMES:
+            return False
+        return not _is_github(parts.hostname or "")
+
+
+class _NoRawHtml(Extension):
+    """生の HTML を解釈せず、文字として出す。信頼できない入力用。"""
+
+    def extendMarkdown(self, md):
+        md.preprocessors.deregister("html_block")
+        md.inlinePatterns.deregister("html")
+        md.treeprocessors.register(_Sanitize(md), "sanitize", 5)
+
+
+ISSUE_REF = re.compile(r"(?<![\w/&#\[])#(\d+)\b")
+_CODE = re.compile(r"(```.*?```|~~~.*?~~~|`[^`\n]+`)", re.S)
+
+
+def _link_refs(text: str, refs: dict[str, str]) -> str:
+    """コードの外の `#N` を、refs にあるものはリンクにする。
+
+    行頭の `#N` は python-markdown が見出しにしてしまうので、リンクにならなかったものは
+    エスケープして文字のまま残す。
+    """
+    parts = _CODE.split(text)
+    for i in range(0, len(parts), 2):
+        seg = ISSUE_REF.sub(
+            lambda m: f"[#{m.group(1)}]({refs[m.group(1)]})"
+            if m.group(1) in refs
+            else m.group(0),
+            parts[i],
+        )
+        parts[i] = re.sub(r"(?m)^#(?=\d)", r"\\#", seg)
+    return "".join(parts)
+
+
+def render_markdown(
+    data: bytes, safe: bool = False, refs: dict[str, str] | None = None
+) -> tuple[str, str]:
+    """safe は信頼できない入力用（生の HTML を実行せず、画像と GitHub へのリンクを出さない）。
+
+    refs は safe のときだけ使い、`#N` から飛び先への対応を渡す。
+    """
+    text = data.decode("utf-8", "replace")
+    if len(data) > MAX_BYTES:
+        return f'<p class="empty">Too large to display ({human(len(data))})</p>', ""
+    if safe:
+        text = _link_refs(text, refs or {})
+
+    mermaid_placeholders = []
+
+    def _sub_mermaid(m):
+        idx = len(mermaid_placeholders)
+        mermaid_placeholders.append(m.group(1).strip())
+        return f"\n\nMERMAIDPLACEHOLDERXYZ{idx}XYZ\n\n"
+
+    preprocessed = MERMAID_BLOCK.sub(_sub_mermaid, text)
+
+    # attr_list は {: onclick=… } で属性を差せるので、safe では使わない
+    if safe:
+        extensions = ["fenced_code", "tables", "sane_lists", "codehilite", _NoRawHtml()]
+    else:
+        extensions = [
+            "fenced_code", "tables", "toc", "attr_list", "sane_lists", "codehilite"
+        ]
+    html_content = markdown.markdown(
+        preprocessed,
+        extensions=extensions,
+        extension_configs={
+            "codehilite": {
+                "css_class": "hl",
+                "linenums": False,
+                "guess_lang": False,
+            }
+        },
+    )
+
+    for idx, code in enumerate(mermaid_placeholders):
+        placeholder = f"<p>MERMAIDPLACEHOLDERXYZ{idx}XYZ</p>"
+        mermaid_html = f'<pre class="mermaid">{html.escape(code)}</pre>'
+        if placeholder in html_content:
+            html_content = html_content.replace(placeholder, mermaid_html)
+        else:
+            html_content = re.sub(
+                rf"<p>\s*MERMAIDPLACEHOLDERXYZ{idx}XYZ\s*</p>",
+                mermaid_html,
+                html_content,
+            )
+
+    body = f'<div class="markdown-body">{html_content}</div>'
+
+    script = """<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+
+mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+
+try {
+  await mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
+} catch (e) {
+  console.error('Mermaid render error:', e);
+}
+</script>"""
+    return body, script

@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.direnv/
+
+# nix build の出力と、setuptools のビルド物
+result
+*.egg-info/
+build/
