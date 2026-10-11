@@ -1,7 +1,7 @@
 ## README と周辺の md から重複と細部を削る
 id: 01
 branch-slug: trim-docs
-status: open
+status: close
 type: cleanup
 対象: README.md、README.en.md、CLAUDE.md、docs/guarantees.md
 内容: README が使う人に要らない細部と、同じ事実の繰り返しで長くなっている。導入して使い始めるのに要る情報だけを残し、日英を同じ構成で縮める。周辺の md も重複を除く
