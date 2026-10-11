@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from conftest import commit, gh_row
+import subprocess
+
+from conftest import commit, gh_row, git
 
 
 def test_fingerprint_stable_without_changes(site):
@@ -32,3 +34,26 @@ def test_publish_writes_into_the_config_repo(site):
     assert "dry-run" in proc.stdout
     assert (site.config.parent / "public" / "index.html").is_file()
     assert (site.config.parent / "functions" / "_middleware.js").is_file()
+
+
+def _with_remote(site, tmp_path):
+    remote = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "-q", "--bare", str(remote)], check=True)
+    git(site.config.parent, "remote", "add", "origin", str(remote))
+    return remote
+
+
+def test_publish_pushes_single_commit_of_assets(site, tmp_path):
+    remote = _with_remote(site, tmp_path)
+    site.run("-m", "codeview", "publish")
+    assert git(remote, "rev-list", "--parents", "-n1", "deploy").count(" ") == 0
+    assert git(remote, "ls-tree", "--name-only", "deploy").split() == ["functions", "public"]
+
+
+def test_publish_if_changed_skips_without_changes(site, tmp_path):
+    remote = _with_remote(site, tmp_path)
+    site.run("-m", "codeview", "publish", "--if-changed")
+    first = git(remote, "rev-parse", "deploy")
+    proc = site.run("-m", "codeview", "publish", "--if-changed")
+    assert "skipped" in proc.stdout
+    assert git(remote, "rev-parse", "deploy") == first

@@ -65,11 +65,6 @@ def commit(repo: Path, files: dict[str, str]) -> None:
     git(repo, "commit", "-qm", "update")
 
 
-def issue_file(title: str, **meta: str) -> str:
-    lines = [f"## {title}"] + [f"{k}: {v}" for k, v in meta.items()]
-    return "\n".join(lines) + "\n\n---\n\n本文\n"
-
-
 def gh_row(number: int, title: str, updated: str, body: str = "", comments=()) -> dict:
     return {
         "number": number,
@@ -176,20 +171,6 @@ def site(tmp_path: Path) -> Site:
             "secrets/token.txt": "secret\n",
             "logo.png": "not really a png\n",
             "docs/guide.md": "# guide\n",
-            "issues/01_first.md": issue_file(
-                "最初の Issue", id="01", status="open", type="feat", 対象="main.py、docs/guide.md (新規)"
-            ),
-            "issues/02_second.md": issue_file(
-                "二つ目の Issue", id="02", status="draft", type="fix", 前提="Issue 01 がマージ済み"
-            ),
-            "issues/03_closed.md": issue_file("閉じた Issue", id="03", status="close", type="feat"),
-            "issues/done/04_done.md": issue_file("done の Issue", id="04", status="open", type="feat"),
-            "issues/05_waits_done.md": issue_file(
-                "消化済みを待つ Issue", id="05", status="open", type="feat", 前提="Issue 03"
-            ),
-            "issues/06_cross.md": issue_file(
-                "別アカウントを待つ Issue", id="06", status="open", type="feat", 前提="beta の Issue 7"
-            ),
         },
         remote="git@github.com:me/alpha.git",
     )
