@@ -92,4 +92,4 @@
 
 ## About
 
-対象は `codeview` コマンド（`build` / `publish`）の外から見える振る舞い、`codeview.toml` の検証、拡張の口。`serve`・`cf-setup`・`cf-status` とページの見た目は対象外。**ここに載っていない振る舞いは約束ではなく、予告なく変わりうる。** 地位は design-decisions.md 相当のドキュメントと同格。
+対象は `codeview` コマンド（`build` / `publish`）の外から見える振る舞い、`codeview.toml` の検証、拡張の口。`serve`・`cf-setup`・`cf-status` とページの見た目は対象外。**ここに載っていない振る舞いは約束ではなく、予告なく変わりうる。**
