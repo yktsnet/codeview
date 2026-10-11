@@ -70,3 +70,10 @@ def test_unknown_plugin_stops_before_build(site):
     assert proc.returncode != 0
     assert "plugins.nope" in proc.stderr
     assert not public.exists()
+
+
+def test_middleware_blocks_pages_dev(site):
+    public, _ = site.build()
+    js = (public.parent / "functions" / "_middleware.js").read_text()
+    assert "host.endsWith('.pages.dev')" in js
+    assert "status: 404" in js
