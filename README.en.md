@@ -87,7 +87,7 @@ An extension has only the functions it needs from the following.
 | `fingerprint(ctx)` | One line added to change detection |
 | `issues(ctx, account, repos)` | When an account's `issues` names this module, returns that account's open issues (`codeview.issues.Issue`) |
 
-`ctx` holds the config, the scanned repositories, the output directories, the `[plugins.<name>]` table (`ctx.options`), and `ctx.read(repo, path)` to read a file at HEAD. With `issues()`, a ledger other than GitHub (such as issue files inside a repository) can be the source of issues.
+`ctx` holds the config, the scanned repositories, the output directories, the `[plugins.<name>]` table (`ctx.options`), and `ctx.read(repo, path)` to read a file at HEAD.
 
 ## Publishing
 

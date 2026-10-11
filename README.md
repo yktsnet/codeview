@@ -87,7 +87,7 @@ gh_config_dir = "~/.config/gh-work"   # 仕事のアカウントで gh auth logi
 | `fingerprint(ctx)` | 変更検出に足す1行 |
 | `issues(ctx, account, repos)` | アカウントの `issues` にこのモジュールを挙げたとき、そのアカウントの未消化の Issue（`codeview.issues.Issue`）を返す |
 
-`ctx` は設定・走査したリポの一覧・出力先・`[plugins.<名前>]` の表（`ctx.options`）・HEAD のファイルを読む `ctx.read(repo, path)` を持つ。`issues()` を使うと、GitHub 以外の台帳（リポの中の Issue ファイルなど）を取り込み元にできる。
+`ctx` は設定・走査したリポの一覧・出力先・`[plugins.<名前>]` の表（`ctx.options`）・HEAD のファイルを読む `ctx.read(repo, path)` を持つ。
 
 ## Publishing
 
