@@ -2,6 +2,9 @@ version: 2
 updates:
   - package-ecosystem: "pip"
     directory: "/"
+    # build-system の下限は flake が使う nixpkgs の setuptools に合わせる。上げると nix build が通らない
+    ignore:
+      - dependency-name: "setuptools"
     schedule:
       interval: "weekly"
     groups:
