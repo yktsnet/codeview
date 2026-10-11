@@ -1,8 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# env
+.env
+.env.local
+.env.*.local
+
+# Claude Code
+.claude/settings.local.json
+
+# Python
 __pycache__/
 *.pyc
-.direnv/
 
 # nix build の出力と、setuptools のビルド物
+.direnv/
 result
 *.egg-info/
 build/

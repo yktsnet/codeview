@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(git push origin main*)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(ssh *)",
+      "Bash(rsync *)",
+      "Bash(codeview publish*)",
+      "Bash(codeview cf-setup*)",
+      "Bash(python -m codeview publish*)",
+      "Bash(python -m codeview cf-setup*)"
+    ],
+    "allow": [
+      "Bash(git *)",
+      "Bash(gh pr *)",
+      "Bash(nix develop -c pytest*)",
+      "Bash(pytest *)",
+      "Bash(python -m pytest*)",
+      "Bash(nix-shell -p *)"
+    ]
+  },
+  "attribution": { "commit": "", "pr": "" }
+}
