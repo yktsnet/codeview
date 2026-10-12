@@ -4,7 +4,12 @@
 
 [![ci](https://github.com/yktsnet/codeview/actions/workflows/ci.yml/badge.svg)](https://github.com/yktsnet/codeview/actions/workflows/ci.yml)
 
-手元の git リポジトリ群と、その GitHub Issue を静的 HTML にまとめ、自分だけが読めるコードブラウザとして Cloudflare Pages + Access で配信する。JavaScript なしでも読めるので、外出先のスマホからでも軽く読める。
+手元の git リポジトリ群と、その GitHub Issue を静的 HTML にまとめ、自分だけが読めるコードブラウザとして Cloudflare Pages + Access で配信する。
+
+- **全リポを1か所で読める**: 手元のリポを置き場ごとに並べ、コードをハイライトして読める
+- **Issue も1か所にまとまる**: 全リポの未消化の Issue を1つの一覧にする。GitHub の複数アカウントからの取り込みにも対応
+- **スマホで軽い**: JavaScript なしの静的 HTML なので、外出先でもすぐ開ける
+- **見つけた箇所をそのまま渡せる**: パス・`パス:行番号`・全文をコピーし、端末やエージェントに貼れる
 
 <p>
   <img src="docs/screenshots/issues.png" alt="Issue 一覧。未消化の Issue が Open と Draft のバッジ付きで並ぶ" width="640">

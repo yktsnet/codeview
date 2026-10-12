@@ -4,7 +4,12 @@
 
 [![ci](https://github.com/yktsnet/codeview/actions/workflows/ci.yml/badge.svg)](https://github.com/yktsnet/codeview/actions/workflows/ci.yml)
 
-Turns your local git repositories and their GitHub issues into static HTML, and serves them through Cloudflare Pages + Access as a code browser only you can read. The pages read fine even without JavaScript, so you can browse them lightly from your phone while away.
+Turns your local git repositories and their GitHub issues into static HTML, and serves them through Cloudflare Pages + Access as a code browser only you can read.
+
+- **Read every repo in one place**: your local repos listed by root, with the code highlighted
+- **All issues in one place too**: open issues from every repo in a single list, with support for pulling from multiple GitHub accounts
+- **Light on a phone**: static HTML with no JavaScript, so it opens quickly while you're away
+- **Hand off what you find**: copy a path, `path:line`, or the whole file and paste it into a terminal or an agent
 
 <p>
   <img src="docs/screenshots/issues.png" alt="Issues: open issues listed with Open and Draft badges" width="640">
