@@ -6,10 +6,10 @@
 
 Turns your local git repositories and their GitHub issues into static HTML, and serves them through Cloudflare Pages + Access as a code browser only you can read. The pages read fine even without JavaScript, so you can browse them lightly from your phone while away.
 
-<p align="center">
+<p>
   <img src="docs/screenshots/issues.png" alt="Issues: open issues listed with Open and Draft badges" width="840">
 </p>
-<p align="center">
+<p>
   <img src="docs/screenshots/code.png" alt="Code page on a desktop: a highlighted file with the Copy file button" width="640">
   <img src="docs/screenshots/code-mobile.png" alt="The same page on a phone, with lines wrapped" width="200">
 </p>
