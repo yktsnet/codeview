@@ -6,6 +6,18 @@
 
 Turns your local git repositories and their GitHub issues into static HTML, and serves them through Cloudflare Pages + Access as a code browser only you can read. The pages read fine even without JavaScript, so you can browse them lightly from your phone while away.
 
+## Screenshots
+
+| Home | Issues |
+|---|---|
+| ![Home: repositories and file counts per root on the left, Claude usage on the right](docs/screenshots/home.png) | ![Issues: open issues listed with Open and Draft badges](docs/screenshots/issues.png) |
+| Repositories and their file counts per root on the left, and weekly Claude Code usage as a chart on the right | Open issues for an account in one list. Open and Draft are told apart, and an issue blocked by another shows `waits on` |
+
+| Code | Phone |
+|---|---|
+| ![Code page: a highlighted file with the Copy file button](docs/screenshots/code.png) | ![Code page on a phone, with lines wrapped](docs/screenshots/code-mobile.png) |
+| Files at HEAD, highlighted with Pygments. Copy the whole file, its path, or `path:line` and hand it straight to a terminal or an agent | Static HTML that needs no JavaScript, so it reads lightly on a phone while away |
+
 ## Quick Start
 
 You need `git`, plus an authenticated `gh` if you want issues. Python 3.11 or later.
