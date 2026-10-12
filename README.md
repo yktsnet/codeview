@@ -7,9 +7,9 @@
 手元の git リポジトリ群と、その GitHub Issue を静的 HTML にまとめ、自分だけが読めるコードブラウザとして Cloudflare Pages + Access で配信する。
 
 - **全リポを1か所で読める**: 手元のリポを置き場ごとに並べ、コードをハイライトして読める
-- **Issue も1か所にまとまる**: 全リポの未消化の Issue を1つの一覧にする。GitHub の複数アカウントからの取り込みにも対応
+- **Issue も1か所にまとまる**: 全リポの未消化の Issue を1つの一覧にする
+- **GitHub の複数アカウントに対応**: 個人用と仕事用のように、別々のアカウントの Issue を分けて取り込める
 - **スマホで軽い**: JavaScript なしの静的 HTML なので、外出先でもすぐ開ける
-- **見つけた箇所をそのまま渡せる**: パス・`パス:行番号`・全文をコピーし、端末やエージェントに貼れる
 
 <p>
   <img src="docs/screenshots/issues.png" alt="Issue 一覧。未消化の Issue が Open と Draft のバッジ付きで並ぶ" width="640">
@@ -78,12 +78,6 @@ groups = ["work"]
 gh_config_dir = "~/.config/gh-work"   # 仕事のアカウントで gh auth login した config dir
 ```
 
-## What You Get
-
-- **コード**: 各リポの HEAD のファイルごとにページを作り、Pygments でハイライトする。Markdown は描画し、ディレクトリに README があれば一覧の下に出す
-- **Issue**: アカウントごとに未消化の Issue を1本の一覧（`/issues/<account>/`）にまとめ、Issue ごとに本文とコメントを古い順に並べたページを作る。本文中の `#N` は、同じリポの未消化の Issue ならこのサイトのページへのリンクになる。GitHub の本文とコメントは他人の文章として扱い、生の HTML は文字として出す。取得に失敗したリポがあっても build は止まらず、一覧の上に `fetch failed: <repo>` と出す
-- **コピー**: ファイルページから、手元の絶対パス・`パス:行番号`・全文をコピーできる。スマホで見つけた箇所をそのまま端末やエージェントに渡せる
-
 ## Extensions
 
 本体が出すのはコードと Issue だけで、それ以外は `[plugins] modules` に並べた Python のモジュールが足す。設定ファイルと同じディレクトリに置けば読める。読み込みに失敗したら、生成を始める前に止まる。
@@ -93,7 +87,7 @@ gh_config_dir = "~/.config/gh-work"   # 仕事のアカウントで gh auth logi
 | 関数 | 役目 |
 |---|---|
 | `css(ctx)` | 本体の CSS の末尾に足す |
-| `side(ctx)` | トップの左メニューの先頭に差し込む塊 |
+| `side(ctx)` | トップの左メニューの先頭に差し込む HTML |
 | `home(ctx)` | トップの右側に出す HTML。`None` なら出さない |
 | `build(ctx)` | `public/` と `functions/` に自前のページを書く |
 | `before_publish(ctx)` | 配信の変更検出の前に呼ぶ |

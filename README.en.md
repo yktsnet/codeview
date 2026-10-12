@@ -7,9 +7,9 @@
 Turns your local git repositories and their GitHub issues into static HTML, and serves them through Cloudflare Pages + Access as a code browser only you can read.
 
 - **Read every repo in one place**: your local repos listed by root, with the code highlighted
-- **All issues in one place too**: open issues from every repo in a single list, with support for pulling from multiple GitHub accounts
+- **All issues in one place too**: open issues from every repo in a single list
+- **Multiple GitHub accounts**: pull issues from separate accounts, such as personal and work, and keep them apart
 - **Light on a phone**: static HTML with no JavaScript, so it opens quickly while you're away
-- **Hand off what you find**: copy a path, `path:line`, or the whole file and paste it into a terminal or an agent
 
 <p>
   <img src="docs/screenshots/issues.png" alt="Issues: open issues listed with Open and Draft badges" width="640">
@@ -78,12 +78,6 @@ groups = ["work"]
 gh_config_dir = "~/.config/gh-work"   # config dir where you ran gh auth login with the work account
 ```
 
-## What You Get
-
-- **Code**: one page per file at each repository's HEAD, highlighted with Pygments. Markdown is rendered, and a directory's README is shown below its listing
-- **Issues**: open issues per account in one list (`/issues/<account>/`), and a page per issue with the body and comments, oldest first. `#N` in the text links to this site's page when it is an open issue in the same repository. GitHub bodies and comments are treated as other people's writing, and raw HTML is shown as text. If fetching fails for a repository, the build does not stop; it shows `fetch failed: <repo>` above the list
-- **Copy**: from a file page you can copy the local absolute path, `path:line` or the whole file. Hand what you found on your phone straight to a terminal or an agent
-
 ## Extensions
 
 The core outputs only code and issues. Anything else comes from the Python modules listed in `[plugins] modules`. Place them in the same directory as the config file. If loading fails, codeview stops before generating anything.
@@ -93,7 +87,7 @@ An extension has only the functions it needs from the following.
 | Function | Role |
 |---|---|
 | `css(ctx)` | Appended to the end of the core CSS |
-| `side(ctx)` | A block inserted at the top of the left menu on the top page |
+| `side(ctx)` | HTML inserted at the top of the left menu on the top page |
 | `home(ctx)` | HTML shown on the right of the top page. `None` shows nothing |
 | `build(ctx)` | Writes its own pages into `public/` and `functions/` |
 | `before_publish(ctx)` | Called before publish detects changes |
