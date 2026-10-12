@@ -6,10 +6,10 @@
 
 手元の git リポジトリ群と、その GitHub Issue を静的 HTML にまとめ、自分だけが読めるコードブラウザとして Cloudflare Pages + Access で配信する。JavaScript なしでも読めるので、外出先のスマホからでも軽く読める。
 
-<p align="center">
-  <img src="docs/screenshots/issues.png" alt="Issue 一覧。未消化の Issue が Open と Draft のバッジ付きで並ぶ" width="840">
+<p>
+  <img src="docs/screenshots/issues.png" alt="Issue 一覧。未消化の Issue が Open と Draft のバッジ付きで並ぶ" width="640">
 </p>
-<p align="center">
+<p>
   <img src="docs/screenshots/code.png" alt="PC で開いたコードのページ。ハイライトされたファイルと Copy file のボタン" width="640">
   <img src="docs/screenshots/code-mobile.png" alt="スマホで開いた同じページ。行を折り返して表示する" width="200">
 </p>
