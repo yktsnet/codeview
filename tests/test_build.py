@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from conftest import commit
+
 
 def test_scans_children_and_skips(site):
     public, _ = site.build()
@@ -46,6 +48,34 @@ def test_no_plugins_means_plain_top(site):
     index = (public / "index.html").read_text()
     assert "Select a repository" in index
     assert "repos /" in index
+
+
+def test_file_page_navigation(site):
+    public, _ = site.build()
+    page = (public / "alpha" / "main.py.html").read_text()
+    # 行数と言語をヘッダに出す
+    assert "1 line · Python · " in page
+    # 本文側のパンくずはトップからたどれる
+    assert '<nav class="crumb mcrumb"><a href="/">codeview</a>' in page
+    assert 'href="/alpha/"' in page
+    # 同じディレクトリの前後（左の一覧と同じ、大小を無視した名前順）
+    assert 'class="next" href="/alpha/README.md.html"' in page
+    assert 'class="prev"' in page and 'class="prev" href' not in page
+    readme = (public / "alpha" / "README.md.html").read_text()
+    assert 'class="prev" href="/alpha/main.py.html"' in readme
+    # ディレクトリにファイルが1つなら前後は出さない
+    assert 'class="pager"' not in (public / "alpha" / "docs" / "guide.md.html").read_text()
+
+
+def test_long_markdown_gets_toc(site):
+    heads = "".join(f"## 節{i}\n\n本文\n\n" for i in range(4))
+    commit(site.home / "own" / "alpha", {"docs/long.md": "# 表題\n\n" + heads})
+    public, _ = site.build()
+    page = (public / "alpha" / "docs" / "long.md.html").read_text()
+    assert '<details class="toc">' in page
+    assert 'href="#節0"' in page and 'id="節0"' in page
+    # 見出しの少ない文書には付けない
+    assert 'class="toc"' not in (public / "alpha" / "docs" / "guide.md.html").read_text()
 
 
 def test_missing_config_stops_before_build(site):

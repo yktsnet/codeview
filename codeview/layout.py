@@ -44,8 +44,9 @@ def page(
     )
 
 
-def crumb(slug: str, rel_parts: list[str], is_file: bool) -> str:
-    links = []
+def crumb(slug: str, rel_parts: list[str], is_file: bool, home: bool = False) -> str:
+    """home は先頭にトップへのリンクを足し、本文側（スマホ）に置く版にする。"""
+    links = ['<a href="/">codeview</a>'] if home else []
     name = slug.split("/")[-1]
     if len(rel_parts) == 0 and not is_file:
         links.append(f"<span>{html.escape(name)}</span>")
@@ -59,15 +60,24 @@ def crumb(slug: str, rel_parts: list[str], is_file: bool) -> str:
             links.append(f"<span>{html.escape(part)}</span>")
         else:
             links.append(f'<a href="/{slug}/{"/".join(acc)}/">{html.escape(part)}</a>')
-    return '<nav class="crumb">' + '<span class="sep">/</span>'.join(links) + "</nav>"
+    cls = "crumb mcrumb" if home else "crumb"
+    return f'<nav class="{cls}">' + '<span class="sep">/</span>'.join(links) + "</nav>"
 
 
 def file_head(
     fname: str, size_label: str, abs_path: str, copy_body: bool, issues=()
 ) -> str:
-    """ファイル名クリックで絶対パスをコピーできるヘッダ。"""
+    """ファイル名クリックで絶対パスをコピーできるヘッダ。
+
+    コードのページには折り返しの切り替えも置く。JS が無いと押しても効かないので、
+    hidden で出しておき FILE_SCRIPT が見せる。
+    """
     btn = (
-        '<button class="hact" id="copy-body">Copy file</button>' if copy_body else ""
+        '<button class="hact" id="wrap" type="button" aria-pressed="true" hidden>'
+        "Wrap: on</button>"
+        '<button class="hact" id="copy-body" type="button">Copy file</button>'
+        if copy_body
+        else ""
     )
     links = "".join(
         f'<a class="hissue" href="{html.escape(i.href, quote=True)}">'
@@ -76,10 +86,32 @@ def file_head(
     )
     return (
         f'<div class="head" data-path="{html.escape(abs_path, quote=True)}">'
-        f'<h2><button class="hpath" id="copy-path" title="Copy path">'
+        f'<h2><button class="hpath" id="copy-path" type="button" title="Copy path">'
         f"{html.escape(fname)}</button></h2>"
-        f'<span class="meta">{html.escape(size_label)}</span>{links}{btn}'
-        f'<span class="flash" id="flash" hidden></span></div>'
+        f'<span class="meta">{html.escape(size_label)}</span>{links}'
+        f'<span class="hbtns">{btn}</span>'
+        f'<span class="flash" id="flash" role="status" hidden></span></div>'
+    )
+
+
+def pager(prev: tuple[str, str] | None, nxt: tuple[str, str] | None) -> str:
+    """同じディレクトリの前後のファイルへのリンク。どちらも無ければ出さない。"""
+    if not prev and not nxt:
+        return ""
+
+    def cell(item, cls, arrow_l, arrow_r):
+        if not item:
+            return f'<span class="{cls}"></span>'
+        name, href = item
+        return (
+            f'<a class="{cls}" href="{html.escape(href, quote=True)}" rel="{cls}">'
+            f"{arrow_l}{html.escape(name)}{arrow_r}</a>"
+        )
+    return (
+        '<nav class="pager">'
+        + cell(prev, "prev", "← ", "")
+        + cell(nxt, "next", "", " →")
+        + "</nav>"
     )
 
 
@@ -128,12 +160,48 @@ FILE_SCRIPT = r"""
     if (text !== null) copy(text, 'Copied file');
   };
 
+  // replaceState では :target が付け替わらないので、JS があるときは .hit で示す
+  document.body.classList.add('lnjs');
+  function mark(n) {
+    document.querySelectorAll('.hl .hit').forEach((e) => e.classList.remove('hit'));
+    const ln = document.getElementById('ln-' + n);
+    if (ln) ln.classList.add('hit');
+    return ln;
+  }
+  function fromHash() {
+    const m = location.hash.match(/^#ln-(\d+)$/);
+    if (m) mark(m[1]);
+  }
+  fromHash();
+  window.addEventListener('hashchange', fromHash);
+
   document.addEventListener('click', (ev) => {
     const no = ev.target.closest('.linenos');
     if (!no) return;
     const n = no.textContent.trim();
-    if (n) copy(path + ':' + n, 'Copied ' + n);
+    if (!n) return;
+    copy(path + ':' + n, 'Copied ' + n);
+    if (mark(n)) history.replaceState(null, '', '#ln-' + n);
   });
+
+  const wrap = document.getElementById('wrap');
+  if (wrap) {
+    const KEY = 'codeview.wrap';
+    let on = true;
+    try { on = localStorage.getItem(KEY) !== '0'; } catch {}
+    const apply = () => {
+      document.body.classList.toggle('nowrap', !on);
+      wrap.textContent = on ? 'Wrap: on' : 'Wrap: off';
+      wrap.setAttribute('aria-pressed', String(on));
+    };
+    apply();
+    wrap.hidden = false;
+    wrap.onclick = () => {
+      on = !on;
+      try { localStorage.setItem(KEY, on ? '1' : '0'); } catch {}
+      apply();
+    };
+  }
 })();
 </script>
 """

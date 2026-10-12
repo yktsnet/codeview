@@ -22,13 +22,15 @@ from codeview.layout import (
     issues_pages,
     listing,
     page,
+    pager,
     side_head,
 )
 from codeview.render import (
     MAX_BYTES,
     human,
     is_text,
-    render_code,
+    line_count,
+    render_code_lang,
     render_markdown,
 )
 from codeview.repo import (
@@ -39,6 +41,11 @@ from codeview.style import MIDDLEWARE, build_style, write
 
 # GitHub と同じく、ディレクトリに README があれば一覧の下に描く。Markdown を優先する
 README_ORDER = (".md", ".markdown", "", ".txt", ".rst")
+
+
+def _lines(data: bytes) -> str:
+    n = line_count(data)
+    return f"{n:,} line" + ("" if n == 1 else "s")
 
 
 def _readme_of(children: dict) -> str | None:
@@ -89,6 +96,16 @@ def build_repo(repo: Path, slug: str, out_root: Path, by_file: dict) -> int:
             for c, (k, s) in tree.get(parent, {}).items()
         ]
 
+    # 前後のファイルへのリンクは、左の一覧と同じ並び（名前の大小を無視）で決める
+    siblings: dict[str, list[str]] = {}
+    for parent_dir, kids in tree.items():
+        siblings[parent_dir] = sorted(
+            (c for c, (k, _) in kids.items() if k == "file"), key=str.lower
+        )
+
+    def file_href(parent_dir: str, child: str) -> str:
+        return f"/{slug}/" + (f"{parent_dir}/" if parent_dir else "") + f"{child}.html"
+
     for path, sha in entries:
         data = blobs.get(sha, b"")
         parts = path.split("/")
@@ -98,28 +115,39 @@ def build_repo(repo: Path, slug: str, out_root: Path, by_file: dict) -> int:
         extra_script = ""
         copy_body = False
         width = "w-md"
+        meta = [human(len(data))]
         if len(data) > MAX_BYTES:
             body = f'<p class="empty">Too large to display ({human(len(data))})</p>'
         elif not is_text(data):
             body = f'<p class="empty">Binary ({human(len(data))})</p>'
         elif fname.lower().endswith((".md", ".markdown")):
             body, extra_script = render_markdown(data)
+            meta.insert(0, _lines(data))
         else:
-            body = render_code(path, data)
+            body, lang = render_code_lang(path, data)
             copy_body = True
             width = "w-code"
+            meta[:0] = [_lines(data)] + ([lang] if lang else [])
 
-        back = f"/{slug}/" + (f"{parent}/" if parent else "")
+        files = siblings.get(parent, [])
+        i = files.index(fname)
+        prev = (files[i - 1], file_href(parent, files[i - 1])) if i > 0 else None
+        nxt = (
+            (files[i + 1], file_href(parent, files[i + 1]))
+            if i + 1 < len(files)
+            else None
+        )
         main = (
-            f'<a id="back" href="{back}">← {html.escape(parent or name)}</a>'
+            crumb(slug, parts, True, home=True)
             + file_head(
                 fname,
-                human(len(data)),
+                " · ".join(meta),
                 f"{local_root}/{path}",
                 copy_body,
                 by_file.get((slug, path), ()),
             )
             + body
+            + pager(prev, nxt)
         )
         side = side_head(crumb(slug, parts, True)) + listing(
             slug, parent, children_of(parent), current=fname
