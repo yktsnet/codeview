@@ -6,6 +6,18 @@
 
 手元の git リポジトリ群と、その GitHub Issue を静的 HTML にまとめ、自分だけが読めるコードブラウザとして Cloudflare Pages + Access で配信する。JavaScript なしでも読めるので、外出先のスマホからでも軽く読める。
 
+## Screenshots
+
+| トップ | Issue 一覧 |
+|---|---|
+| ![トップ。左に置き場ごとのリポとファイル数、右に Claude の使用状況](docs/screenshots/home.png) | ![Issue 一覧。未消化の Issue が Open と Draft のバッジ付きで並ぶ](docs/screenshots/issues.png) |
+| 左に置き場ごとのリポとファイル数を並べ、右に Claude Code の使用状況を週ごとのグラフで出す | アカウントの未消化の Issue を1本にまとめる。Open と Draft を分け、他の Issue を待つものは `waits on` で示す |
+
+| コード | スマホ |
+|---|---|
+| ![コードのページ。ハイライトされたファイルと Copy file のボタン](docs/screenshots/code.png) | ![スマホで開いたコードのページ。行を折り返して表示する](docs/screenshots/code-mobile.png) |
+| HEAD のファイルを Pygments でハイライトする。全文・パス・`パス:行番号` をコピーし、そのまま端末やエージェントに渡せる | JavaScript なしの静的 HTML なので、外出先のスマホでも軽く読める |
+
 ## Quick Start
 
 前提は `git` と、Issue を取り込むなら認証済みの `gh`。Python 3.11 以上。
