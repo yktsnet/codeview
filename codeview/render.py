@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 
 import markdown
 from markdown.extensions import Extension
+from markdown.extensions.toc import slugify_unicode
 from markdown.treeprocessors import Treeprocessor
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
@@ -33,10 +34,21 @@ def human(n: int) -> str:
     return f"{n / 1024 / 1024:.1f} MB"
 
 
+def line_count(data: bytes) -> int:
+    if not data:
+        return 0
+    return data.count(b"\n") + (0 if data.endswith(b"\n") else 1)
+
+
 def render_code(path: str, data: bytes) -> str:
+    return render_code_lang(path, data)[0]
+
+
+def render_code_lang(path: str, data: bytes) -> tuple[str, str | None]:
+    """ハイライトした HTML と、言語名（ハイライトしなかったときは None）を返す。"""
     text = data.decode("utf-8", "replace")
     if len(data) > HIGHLIGHT_MAX_BYTES:
-        return '<pre class="plain">' + html.escape(text) + "</pre>"
+        return '<pre class="plain">' + html.escape(text) + "</pre>", None
     try:
         lexer = get_lexer_for_filename(path, text)
     except ClassNotFound:
@@ -45,11 +57,13 @@ def render_code(path: str, data: bytes) -> str:
         except ClassNotFound:
             lexer = None
     if lexer is None:
-        return '<pre class="plain">' + html.escape(text) + "</pre>"
+        return '<pre class="plain">' + html.escape(text) + "</pre>", None
     out = highlight(
         text, lexer, HtmlFormatter(cssclass="hl", linenos="inline", linespans="ln")
     )
-    return out.replace("\n</span>", "</span>")
+    # 中身を当て推量した「テキスト」は言語として名乗らない
+    lang = None if lexer.name in ("Text only", "Text") else lexer.name
+    return out.replace("\n</span>", "</span>"), lang
 
 
 # リンクに残してよいスキーム。javascript: や data: は外す
@@ -116,6 +130,34 @@ def _link_refs(text: str, refs: dict[str, str]) -> str:
     return "".join(parts)
 
 
+# 見出しがこれより少ない文書は、目次を付けても読む手間が減らない
+TOC_MIN = 4
+
+
+def _toc(tokens: list[dict]) -> str:
+    """h1〜h3 の見出しから、畳める目次を作る。表題1つだけの h1 は数えない。"""
+    flat: list[tuple[int, str, str]] = []
+
+    def walk(items):
+        for t in items:
+            if t["level"] <= 3:
+                flat.append((t["level"], t["id"], t["name"]))
+            walk(t.get("children", []))
+
+    walk(tokens)
+    if sum(1 for lv, _, _ in flat if lv == 1) == 1:
+        flat = [f for f in flat if f[0] != 1]
+    if len(flat) < TOC_MIN:
+        return ""
+    top = min(lv for lv, _, _ in flat)
+    rows = "".join(
+        f'<li class="l{lv - top}"><a href="#{html.escape(i, quote=True)}">'
+        f"{html.escape(html.unescape(name))}</a></li>"
+        for lv, i, name in flat
+    )
+    return f'<details class="toc"><summary>Contents</summary><ul>{rows}</ul></details>'
+
+
 def render_markdown(
     data: bytes, safe: bool = False, refs: dict[str, str] | None = None
 ) -> tuple[str, str]:
@@ -145,17 +187,19 @@ def render_markdown(
         extensions = [
             "fenced_code", "tables", "toc", "attr_list", "sane_lists", "codehilite"
         ]
-    html_content = markdown.markdown(
-        preprocessed,
+    md = markdown.Markdown(
         extensions=extensions,
         extension_configs={
             "codehilite": {
                 "css_class": "hl",
                 "linenums": False,
                 "guess_lang": False,
-            }
+            },
+            # 既定の slugify は日本語を落として `_1` のような id にするので、文字を残す
+            **({} if safe else {"toc": {"slugify": slugify_unicode}}),
         },
     )
+    html_content = md.convert(preprocessed)
 
     for idx, code in enumerate(mermaid_placeholders):
         placeholder = f"<p>MERMAIDPLACEHOLDERXYZ{idx}XYZ</p>"
@@ -169,7 +213,8 @@ def render_markdown(
                 html_content,
             )
 
-    body = f'<div class="markdown-body">{html_content}</div>'
+    toc = "" if safe else _toc(getattr(md, "toc_tokens", []))
+    body = f'<div class="markdown-body">{toc}{html_content}</div>'
 
     script = """<script type="module">
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';

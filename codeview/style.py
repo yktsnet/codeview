@@ -21,11 +21,12 @@ BASE_CSS = """
   --btn-hover: #353a42;
   --fg: #dfe1e4;
   --mute: #9aa0a8;
-  --faint: #737981;
+  --faint: #878d95;
   --line: #353941;
   --line-soft: #282c32;
   --accent: #7ba3cc;
   --accent-soft: #26313d;
+  --hit: #3a3424;
   --draft: #d9a86c;
   --draft-bg: #3a2f1f;
   --open: #7fc79a;
@@ -44,6 +45,9 @@ body {
   -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
 }
 a { color: inherit; text-decoration: none; }
+/* キーボードで辿ったときだけ枠を出す。.hpath などは all: unset で既定の枠が消えている */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+#list :focus-visible { outline-offset: -2px; }
 .meta { color: var(--faint); font-size: .74rem; }
 .empty { color: var(--faint); font-size: .85rem; padding: 3rem 1rem; text-align: center; }
 
@@ -116,6 +120,8 @@ a { color: inherit; text-decoration: none; }
 .wrap.w-issue { max-width: 1000px; }
 .wrap.w-code { max-width: 1280px; }
 #back { display: none; }
+/* 本文側のパンくずはスマホだけで使う（PC は左の見出しにある） */
+.mcrumb { display: none; }
 .readme-head {
   margin: 0 0 1rem; padding: 0 0 .6rem; border-bottom: 1px solid var(--line);
   font: 600 .85rem var(--mono);
@@ -126,34 +132,44 @@ a { color: inherit; text-decoration: none; }
   display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap;
   padding-bottom: .7rem; margin-bottom: 1rem; border-bottom: 1px solid var(--line);
 }
+/* 長いファイルを下まで読んでも、名前とコピーの釦が手の届く所に残るようにする */
+.head[data-path] {
+  position: sticky; top: 0; z-index: 4; background: var(--bg);
+  padding-top: .6rem; margin-top: -.6rem;
+}
 .head h2 { margin: 0; font: 650 1.05rem/1.4 var(--mono); }
 .head h2 .hpath {
   all: unset; cursor: pointer; border-bottom: 1px dashed var(--line);
 }
 .head h2 .hpath:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.head h2 .hpath:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.head .hbtns { margin-left: auto; display: flex; gap: .4rem; }
+.head .hbtns:empty { display: none; }
 .head .hact {
-  margin-left: auto; cursor: pointer;
+  cursor: pointer;
   padding: .25rem .6rem; border: 1px solid var(--line); border-radius: var(--r-sm);
   background: var(--btn); color: var(--mute); font: 500 .72rem var(--mono);
 }
+.head .hact[hidden] { display: none; }
 .head .hact:hover { background: var(--btn-hover); color: var(--fg); }
 .head .flash { color: var(--accent); font: 500 .72rem var(--mono); }
 
-/* ---------- code ---------- */
-/* 回線の細い外出先で開いた瞬間に長いコードを描かせない。既定は畳んでおく */
-details.code > summary {
-  display: flex; align-items: center; gap: .6rem; cursor: pointer;
-  padding: .5rem .8rem; border: 1px solid var(--line); border-radius: var(--r-sm);
-  background: var(--btn); color: var(--mute); font: 500 .82rem var(--mono);
-  list-style: none;
+/* 同じディレクトリの前後のファイル */
+.pager {
+  display: flex; justify-content: space-between; gap: 1rem;
+  margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--line);
+  font: 500 .8rem var(--mono);
 }
-details.code > summary::-webkit-details-marker { display: none; }
-details.code > summary:hover { background: var(--btn-hover); color: var(--fg); }
-details.code > summary .t::before { content: "▸ "; color: var(--accent); }
-details.code[open] > summary { margin-bottom: .6rem; }
-details.code[open] > summary .t::before { content: "▾ "; }
-details.code > summary .m { margin-left: auto; color: var(--faint); font-size: .72rem; }
+.pager a {
+  min-width: 0; max-width: 48%; padding: .45rem .8rem;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--btn); color: var(--mute);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pager a:hover { background: var(--btn-hover); color: var(--fg); }
+.pager .next { margin-left: auto; }
 
+/* ---------- code ---------- */
 .hl {
   background: transparent;
   border: none;
@@ -170,7 +186,17 @@ details.code > summary .m { margin-left: auto; color: var(--faint); font-size: .
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
 /* 折り返した続きの行を行番号ぶん字下げして、行の始まりを見分けられるようにする */
-.hl pre > span[id^="ln-"] { display: block; padding-left: 4rem; text-indent: -4rem; }
+.hl pre > span[id^="ln-"] {
+  display: block; padding-left: 4rem; text-indent: -4rem;
+  scroll-margin-top: 5rem;  /* 固定したヘッダの下に隠れないように */
+}
+/* #ln-N で開いた行、押した行に色を付ける。JS があるときは .hit だけを使う
+   （history.replaceState では :target が付け替わらない） */
+body:not(.lnjs) .hl pre > span[id^="ln-"]:target,
+.hl pre > span.hit {
+  margin: 0 -1rem; padding-left: 5rem;
+  background: var(--hit); box-shadow: inset 3px 0 0 var(--draft);
+}
 /* pygments の github-dark は行番号 span ごとに黒を塗る。本文背景から浮くので消す */
 .hl span.linenos {
   background: none; color: var(--faint); user-select: none; cursor: pointer;
@@ -178,6 +204,12 @@ details.code > summary .m { margin-left: auto; color: var(--faint); font-size: .
   padding: 0 .8rem 0 0;
 }
 .hl span.linenos:hover { color: var(--accent); }
+/* Wrap: off。行は折り返さず、箱の中を横に送る */
+.nowrap .hl pre, .nowrap pre.plain {
+  white-space: pre; overflow-wrap: normal; overflow-x: auto;
+}
+.nowrap .hl pre > span[id^="ln-"] { width: max-content; min-width: 100%; }
+.nowrap .hl pre > span.hit { min-width: calc(100% + 2rem); }
 
 /* ---------- markdown & mermaid ---------- */
 .markdown-body {
@@ -203,6 +235,23 @@ details.code > summary .m { margin-left: auto; color: var(--faint); font-size: .
   border-bottom: 1px solid var(--line-soft);
 }
 .markdown-body h3 { font-size: 1.1rem; }
+/* 目次から飛んだ見出しが、固定したファイル名のヘッダの下に隠れないように */
+.markdown-body :is(h1, h2, h3, h4) { scroll-margin-top: 4.5rem; }
+.markdown-body .toc {
+  margin: 0 0 1.4rem; padding: .45rem .9rem;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--card);
+}
+.markdown-body .toc > summary {
+  cursor: pointer; color: var(--mute); font: 600 .78rem/1.8 var(--mono);
+  letter-spacing: .04em;
+}
+.markdown-body .toc > summary:hover { color: var(--fg); }
+.markdown-body .toc ul { list-style: none; margin: .3rem 0 .2rem; padding: 0; }
+.markdown-body .toc li { margin: 0; font-size: .88rem; line-height: 1.9; }
+.markdown-body .toc li.l1 { padding-left: 1.1rem; }
+.markdown-body .toc li.l2 { padding-left: 2.2rem; font-size: .84rem; }
+.markdown-body .toc a { color: var(--mute); text-decoration: none; }
+.markdown-body .toc a:hover { color: var(--accent); }
 .markdown-body a { color: var(--accent); text-decoration: underline; }
 .markdown-body p { margin: 0.8em 0; }
 .markdown-body blockquote {
@@ -375,7 +424,7 @@ details.code > summary .m { margin-left: auto; color: var(--faint); font-size: .
   body { display: block; }
   #side { position: static; display: block; width: auto; height: auto; border-right: 0; }
   #side-head {
-    position: sticky; top: 0; z-index: 10; background: var(--bg);
+    position: sticky; top: 0; z-index: 10; background: var(--side-bg);
     padding-top: calc(.8rem + env(safe-area-inset-top, 0px));
   }
   #list { overflow: visible; }
@@ -383,6 +432,10 @@ details.code > summary .m { margin-left: auto; color: var(--faint); font-size: .
   .dhead { position: static; }
   .item { padding: .7rem .8rem; }
   #main { padding: 1rem 1rem 5rem; }
+  /* ファイルのページは左の一覧ごと隠れるので、パンくずを本文の先頭に出す */
+  .mcrumb { display: flex; margin-bottom: 1.1rem; font-size: .8rem; }
+  .head[data-path] { padding-top: calc(.6rem + env(safe-area-inset-top, 0px)); }
+  .pager a { padding: .6rem .8rem; }
   body.detail #side { display: none; }
   body:not(.detail):not(.home):not(.readme) #main { display: none; }
   /* README のあるディレクトリは、GitHub と同じく一覧の下に README を出す */
@@ -391,6 +444,8 @@ details.code > summary .m { margin-left: auto; color: var(--faint); font-size: .
      タイトル行は先頭のまま。#side を畳んで3つを同じ並びで order する */
   body.home { display: flex; flex-direction: column; }
   body.home #side { display: contents; }
+  /* #side の背景が消えて本文と同じ地に並ぶので、見出しも地の色に揃える */
+  body.home #side-head, body.home .dhead { background: var(--bg); }
   body.home #side-head { order: 0; }
   body.home #main { order: 1; padding-bottom: 1rem; }
   body.home #list { order: 2; padding-bottom: 5rem; }
