@@ -20,6 +20,11 @@
 - 本体が書くページの `href` / `src` は、外部 URL・ページ内アンカーを除いて `/` で始まらない相対パスである
 - その相対パスは、ページの位置から解決すると `public/` 内に実在するファイルを指す（ディレクトリへのリンクは `index.html` まで書く）
 - 拡張の `side()` / `home()` が返す HTML 内の `/` 始まりのリンクも、同じく相対パスに直る
+- リポのファイルを描いた Markdown の本文で、リポ内のファイルを指す相対リンクは、そのファイルのページへのリンクになる。`#` 以降のアンカーは残す
+- リポ内のディレクトリを指すリンクは、そのディレクトリのページ（`index.html`）へのリンクになる
+- `/` 始まりのリンクは、リポのルートを基準に解決する
+- 上の解決は、ファイルページの本文でも、ディレクトリのページに埋め込んだ README でも、同じ先を指す（基準になるのは `.md` の位置であって、表示するページの位置ではない）
+- リンク先がリポ内にページを持たないとき（HEAD に無い・除外した・リポの外）は、リンクにせず文字だけを残す
 
 | 保証（要約） | 対応テスト |
 |---|---|
@@ -34,6 +39,9 @@
 | Mermaid の図のページは同梱のスクリプトだけを読む | `test_mermaid_page_loads_only_bundled_script` |
 | リンクは相対パスで、実在するファイルを指す | `test_links_are_relative_and_resolve` |
 | 拡張の `side()` / `home()` のリンクも相対パスに直る | `test_extension_home_and_side_links_are_relative` |
+| Markdown 本文のリポ内リンクは生成したページを指す（ファイル・ディレクトリ・`/` 始まり・アンカー・ファイルページと埋め込み README の一致） | `test_markdown_links_point_to_generated_pages` |
+| サブディレクトリの `.md` でも、リンクの解決の基準は `.md` の位置で、ファイルページと埋め込み README が同じ先を指す | `test_markdown_links_resolve_from_md_location_in_subdirectory` |
+| ページの無い先へのリンクは文字になる | `test_markdown_links_point_to_generated_pages` |
 | 設定ファイルが無い | `test_missing_config_stops_before_build` |
 | 設定の書式誤り | `test_broken_config_stops_before_build` |
 | 読み込めない拡張 | `test_unknown_plugin_stops_before_build` |

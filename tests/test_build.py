@@ -169,7 +169,7 @@ def _assert_relative_and_resolvable(public):
 def test_links_are_relative_and_resolve(site):
     commit(
         site.home / "own" / "alpha",
-        {"docs/code.md": "コード `<a href=\"/x\">` の例\n\n[top](/) [dir](/alpha/docs/) [ext](https://example.com/)\n"},
+        {"docs/code.md": "コード `<a href=\"/x\">` の例\n\n[top](/) [dir](/docs/) [ext](https://example.com/)\n"},
     )
     public, _ = site.build()
     assert _assert_relative_and_resolvable(public) > 50
@@ -192,3 +192,109 @@ def test_extension_home_and_side_links_are_relative(site):
     assert 'class="y" href="beta/docs/index.html"' in index
     # script の本文は書き換えない
     assert "var a = 1 < 2;" in index
+
+
+class _Anchors(HTMLParser):
+    """本文の `<a>` を（文字, href）で集める。"""
+
+    def __init__(self):
+        super().__init__()
+        self.anchors: dict[str, str] = {}
+        self._href = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            self._href = dict(attrs).get("href")
+
+    def handle_endtag(self, tag):
+        if tag == "a":
+            self._href = None
+
+    def handle_data(self, data):
+        if self._href is not None:
+            self.anchors[data] = self._href
+
+
+def _anchors(page_path):
+    parser = _Anchors()
+    parser.feed(page_path.read_text())
+    return parser.anchors
+
+
+def _target(page_path, href):
+    """href をページの位置から解決した先（`#` 以降は除く）。"""
+    return (page_path.parent / href.split("#")[0]).resolve()
+
+
+README_LINKS = """# alpha
+
+[guide](docs/guide.md) [anchor](docs/guide.md#usage) [src](main.py)
+[dir1](docs/) [dir2](docs) [root](/docs/guide.md) [top](.) [enc](docs/guide%2Emd?x=1)
+[missing](nothing.md) [skipped](logo.png) [outside](../../x.md)
+[ext](https://example.com/) [hash](#見出し)
+"""
+
+
+def test_markdown_links_point_to_generated_pages(site):
+    alpha = site.home / "own" / "alpha"
+    commit(
+        alpha,
+        {
+            "README.md": README_LINKS,
+            "docs/guide.md": "# guide\n\n[up](../README.md) [far](../../x.md)\n",
+        },
+    )
+    public, _ = site.build()
+    out = public / "alpha"
+    guide = (out / "docs" / "guide.md.html").resolve()
+    main = (out / "main.py.html").resolve()
+    docs_index = (out / "docs" / "index.html").resolve()
+    for page_path in (out / "README.md.html", out / "index.html"):
+        found = _anchors(page_path)
+        assert _target(page_path, found["guide"]) == guide
+        assert found["anchor"].endswith("guide.md.html#usage")
+        assert _target(page_path, found["anchor"]) == guide
+        assert _target(page_path, found["src"]) == main
+        for name in ("dir1", "dir2"):
+            assert _target(page_path, found[name]) == docs_index
+        assert _target(page_path, found["root"]) == guide
+        assert _target(page_path, found["top"]) == (out / "index.html").resolve()
+        # %エンコードは戻して突き合わせ、query は落とす
+        assert _target(page_path, found["enc"]) == guide and "?" not in found["enc"]
+        # ページの無い先は、リンクにせず文字だけ残す
+        text = page_path.read_text()
+        for name in ("missing", "skipped", "outside"):
+            assert name not in found and name in text
+        assert found["ext"] == "https://example.com/"
+        assert found["hash"] == "#見出し"
+    # 基準は .md の位置。docs/ の中から親のファイルを指せる
+    page_path = out / "docs" / "guide.md.html"
+    found = _anchors(page_path)
+    assert _target(page_path, found["up"]) == (out / "README.md.html").resolve()
+    assert "far" not in found and "far" in page_path.read_text()
+    _assert_relative_and_resolvable(public)
+
+
+def test_markdown_links_resolve_from_md_location_in_subdirectory(site):
+    # サブディレクトリの README は、ファイルページと docs/index.html に埋め込まれた形で同じ先を指す
+    commit(
+        site.home / "own" / "alpha",
+        {
+            "docs/README.md": (
+                "[sib](guide.md) [root](/main.py) [up](../README.md) "
+                "[sec](../secrets/token.txt) [q](guide.md?x#a)\n"
+            ),
+        },
+    )
+    public, _ = site.build()
+    out = public / "alpha"
+    for page_path in (out / "docs" / "README.md.html", out / "docs" / "index.html"):
+        found = _anchors(page_path)
+        guide = (out / "docs" / "guide.md.html").resolve()
+        assert _target(page_path, found["sib"]) == guide
+        assert _target(page_path, found["root"]) == (out / "main.py.html").resolve()
+        assert _target(page_path, found["up"]) == (out / "README.md.html").resolve()
+        assert _target(page_path, found["q"]) == guide and found["q"].endswith("#a")
+        # exclude_prefixes で除外したファイルはページが無いので文字になる
+        assert "sec" not in found and "sec" in page_path.read_text()
+    _assert_relative_and_resolvable(public)

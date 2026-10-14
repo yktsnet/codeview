@@ -29,6 +29,7 @@ from codeview.layout import (
 )
 from codeview.render import (
     MAX_BYTES,
+    LinkContext,
     human,
     is_text,
     line_count,
@@ -117,6 +118,13 @@ def build_repo(repo: Path, slug: str, out_root: Path, by_file: dict) -> int:
             (c for c, (k, _) in kids.items() if k == "file"), key=str.lower
         )
 
+    # ページになるのは entries に残ったファイルだけ。除外したものは Markdown のリンク先にしない
+    file_set = frozenset(path for path, _ in entries)
+    dir_set = frozenset(tree)
+
+    def links_for(md_path: str) -> LinkContext:
+        return LinkContext(slug, md_path, file_set, dir_set)
+
     def file_href(parent_dir: str, child: str) -> str:
         return f"/{slug}/" + (f"{parent_dir}/" if parent_dir else "") + f"{child}.html"
 
@@ -135,7 +143,7 @@ def build_repo(repo: Path, slug: str, out_root: Path, by_file: dict) -> int:
         elif not is_text(data):
             body = f'<p class="empty">Binary ({human(len(data))})</p>'
         elif fname.lower().endswith((".md", ".markdown")):
-            body, extra_script = render_markdown(data)
+            body, extra_script = render_markdown(data, links=links_for(path))
             meta.insert(0, _lines(data))
         else:
             body, lang = render_code_lang(path, data)
@@ -193,7 +201,7 @@ def build_repo(repo: Path, slug: str, out_root: Path, by_file: dict) -> int:
             rpath = f"{parent}/{readme}" if parent else readme
             data = blobs.get(dict(entries).get(rpath, ""), b"")
             if readme.lower().endswith((".md", ".markdown")):
-                body, extra_script = render_markdown(data)
+                body, extra_script = render_markdown(data, links=links_for(rpath))
             else:
                 body = '<pre class="plain">' + html.escape(data.decode("utf-8", "replace")) + "</pre>"
             main = (
