@@ -1,7 +1,7 @@
 ## Markdown 本文のリポ内リンクを生成したページへ向ける
 id: 04
 branch-slug: markdown-links
-status: open
+status: close
 type: fix
 対象: codeview/render.py, codeview/build.py, tests/test_build.py, docs/guarantees.md
 内容: リポのファイルを Markdown として描くとき、本文の相対リンク（`[guide](docs/guide.md)`、`[src](main.py)`、`[back](../README.md)`、`[d](docs/)`）は書いたままの href で出力される。生成物は `docs/guide.md.html` なので、リンク先が見つからない。`docs/` は file:// で開けず、`/` 始まりは `relativize()` がサイトのルートを基準に解決してしまう。リポ内を指すリンクを、そのファイルのページ（ディレクトリならそのディレクトリのページ）へ向ける。ファイルページの本文と、ディレクトリのページに埋め込む README の両方が対象である。
