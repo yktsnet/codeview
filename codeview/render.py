@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import html
+import posixpath
 import re
-from urllib.parse import urlsplit
+from dataclasses import dataclass
+from urllib.parse import unquote, urlsplit
 
 import markdown
 from markdown.extensions import Extension
@@ -99,6 +101,63 @@ class _Sanitize(Treeprocessor):
         return not _is_github(parts.hostname or "")
 
 
+@dataclass(frozen=True)
+class LinkContext:
+    """リポの Markdown の相対リンクを、生成したページへ向けるための材料。
+
+    md_path は読んでいる `.md` のリポ内パス。解決の基準は表示するページの位置ではなく、これである。
+    files と dirs は、ページになるファイルとディレクトリのリポ内パス（ルートのディレクトリは ""）。
+    """
+
+    slug: str
+    md_path: str
+    files: frozenset[str]
+    dirs: frozenset[str]
+
+    def resolve(self, href: str) -> str | None:
+        """リポ内のページを指すリンクならサイト内の絶対パスを返す。外部・アンカーは href のまま、
+        ページの無い先は None。"""
+        parts = urlsplit(href.strip())
+        if parts.scheme or parts.netloc or not parts.path:
+            return href
+        raw = unquote(parts.path)
+        if raw.startswith("/"):
+            target = posixpath.normpath(raw.lstrip("/") or ".")
+        else:
+            base = posixpath.dirname(self.md_path)
+            target = posixpath.normpath(posixpath.join(base, raw))
+        if target == ".":
+            target = ""
+        if target == ".." or target.startswith("../"):
+            return None
+        frag = f"#{parts.fragment}" if parts.fragment else ""
+        if not raw.endswith("/") and target in self.files:
+            return f"/{self.slug}/{target}.html{frag}"
+        if target in self.dirs:
+            return f"/{self.slug}/" + (f"{target}/" if target else "") + frag
+        return None
+
+
+class _ResolveLinks(Treeprocessor):
+    """リポ内を指す相対リンクを生成したページへ向け、ページの無い先はリンクでない文字にする。"""
+
+    def __init__(self, md, links: LinkContext):
+        super().__init__(md)
+        self.links = links
+
+    def run(self, root):
+        for el in root.iter("a"):
+            href = el.get("href")
+            if href is None:
+                continue
+            new = self.links.resolve(href)
+            if new is None:
+                el.attrib.clear()
+                el.tag = "span"
+            else:
+                el.set("href", new)
+
+
 class _NoRawHtml(Extension):
     """生の HTML を解釈せず、文字として出す。信頼できない入力用。"""
 
@@ -159,11 +218,15 @@ def _toc(tokens: list[dict]) -> str:
 
 
 def render_markdown(
-    data: bytes, safe: bool = False, refs: dict[str, str] | None = None
+    data: bytes,
+    safe: bool = False,
+    refs: dict[str, str] | None = None,
+    links: LinkContext | None = None,
 ) -> tuple[str, str]:
     """safe は信頼できない入力用（生の HTML を実行せず、画像と GitHub へのリンクを出さない）。
 
     refs は safe のときだけ使い、`#N` から飛び先への対応を渡す。
+    links は safe でないときだけ使い、リポ内への相対リンクの解決に使う。
     """
     text = data.decode("utf-8", "replace")
     if len(data) > MAX_BYTES:
@@ -199,6 +262,8 @@ def render_markdown(
             **({} if safe else {"toc": {"slugify": slugify_unicode}}),
         },
     )
+    if links is not None and not safe:
+        md.treeprocessors.register(_ResolveLinks(md, links), "resolve_links", 5)
     html_content = md.convert(preprocessed)
 
     for idx, code in enumerate(mermaid_placeholders):
