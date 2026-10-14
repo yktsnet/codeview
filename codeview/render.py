@@ -138,17 +138,96 @@ class LinkContext:
         return None
 
 
-class _ResolveLinks(Treeprocessor):
-    """リポ内を指す相対リンクを生成したページへ向け、ページの無い先はリンクでない文字にする。"""
+@dataclass(frozen=True)
+class GitHubRepo:
+    slug: str
+    account: str | None
+    # 生成したのはこのブランチの HEAD。他の ref を指す URL は中身が違いうるので向けない
+    branch: str | None
+    files: frozenset[str]
+    dirs: frozenset[str]
 
-    def __init__(self, md, links: LinkContext):
+
+@dataclass(frozen=True)
+class GitHubLinks:
+    """GitHub の URL のうち、生成したページに対応するものをサイト内へ向けるための材料。
+
+    repos は `owner/repo`（小文字）から走査対象のリポへ。issues は (`owner/repo`, 番号) から
+    (アカウント, Issue のページ) へ。
+    """
+
+    repos: dict[str, GitHubRepo]
+    issues: dict[tuple[str, str], tuple[str, str]]
+
+    def resolve(self, href: str, account: str | None) -> str | None:
+        """対応するページがあればサイト内の絶対パスを、無ければ None を返す。
+
+        Issue へはアカウントが同じときだけ向ける。
+        """
+        parts = urlsplit(href.strip())
+        if parts.scheme.lower() not in ("http", "https"):
+            return None
+        if (parts.hostname or "") not in ("github.com", "www.github.com"):
+            return None
+        segs = [unquote(s) for s in parts.path.split("/") if s]
+        if len(segs) < 2:
+            return None
+        key = f"{segs[0]}/{segs[1].removesuffix('.git')}".lower()
+        repo = self.repos.get(key)
+        if repo is None:
+            return None
+        rest = segs[2:]
+        if not rest:
+            return f"/{repo.slug}/"
+        if rest[0] == "issues" and len(rest) == 2:
+            hit = self.issues.get((key, rest[1]))
+            if hit is not None and account is not None and hit[0] == account:
+                return hit[1]
+            return None
+        if rest[0] not in ("blob", "tree") or repo.branch is None:
+            return None
+        ref = repo.branch.split("/")
+        if rest[1 : 1 + len(ref)] != ref:
+            return None
+        target = "/".join(rest[1 + len(ref) :])
+        frag = f"#{parts.fragment}" if parts.fragment else ""
+        if rest[0] == "blob" and target in repo.files:
+            return f"/{repo.slug}/{target}.html{frag}"
+        if target in repo.dirs:
+            return f"/{repo.slug}/" + (f"{target}/" if target else "") + frag
+        return None
+
+
+class _ResolveLinks(Treeprocessor):
+    """生成したページに対応するリンクをそのページへ向ける。
+
+    GitHub の URL は github で引く。links があれば、リポ内を指す相対リンクも解決し、
+    ページの無い先はリンクでない文字にする。
+    """
+
+    def __init__(
+        self,
+        md,
+        links: LinkContext | None,
+        github: GitHubLinks | None,
+        account: str | None,
+    ):
         super().__init__(md)
         self.links = links
+        self.github = github
+        self.account = account
 
     def run(self, root):
         for el in root.iter("a"):
             href = el.get("href")
             if href is None:
+                continue
+            if self.github is not None:
+                inner = self.github.resolve(href, self.account)
+                if inner is not None:
+                    el.set("href", inner)
+                    continue
+            if self.links is None:
                 continue
             new = self.links.resolve(href)
             if new is None:
@@ -222,11 +301,15 @@ def render_markdown(
     safe: bool = False,
     refs: dict[str, str] | None = None,
     links: LinkContext | None = None,
+    github: GitHubLinks | None = None,
+    account: str | None = None,
 ) -> tuple[str, str]:
     """safe は信頼できない入力用（生の HTML を実行せず、画像と GitHub へのリンクを出さない）。
 
     refs は safe のときだけ使い、`#N` から飛び先への対応を渡す。
     links は safe でないときだけ使い、リポ内への相対リンクの解決に使う。
+    github を渡すと、GitHub の URL のうち生成したページに対応するものは、safe でもそのページへ向ける。
+    account は読んでいる文書のアカウントで、Issue へ向けるかの判定に使う。
     """
     text = data.decode("utf-8", "replace")
     if len(data) > MAX_BYTES:
@@ -262,8 +345,12 @@ def render_markdown(
             **({} if safe else {"toc": {"slugify": slugify_unicode}}),
         },
     )
-    if links is not None and not safe:
-        md.treeprocessors.register(_ResolveLinks(md, links), "resolve_links", 5)
+    resolve = links if not safe else None
+    if resolve is not None or github is not None:
+        # _Sanitize（5）が GitHub へのリンクを文字にする前に書き換える
+        md.treeprocessors.register(
+            _ResolveLinks(md, resolve, github, account), "resolve_links", 6
+        )
     html_content = md.convert(preprocessed)
 
     for idx, code in enumerate(mermaid_placeholders):

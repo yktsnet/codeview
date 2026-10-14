@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -17,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import config, plugins
-from .repo import account_of
+from .repo import account_of, owner_repo
 
 GH_TIMEOUT = 60
 # 指紋は毎時の判定で回るので、本文やコメントまでは取りに行かない
@@ -96,26 +95,11 @@ def _gh(owner_repo: str, fields: str, config_dir: Path | None) -> list[dict]:
     return json.loads(proc.stdout)
 
 
-def _owner_repo(repo: Path) -> str:
-    proc = subprocess.run(
-        ["git", "config", "--get", "remote.origin.url"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-    )
-    url = proc.stdout.strip()
-    # scp 形式（`<host>:<owner>/<repo>.git`）と https 形式の両方を受ける
-    m = re.search(r"[:/]([^/:]+/[^/:]+?)(?:\.git)?/?$", url)
-    if not m:
-        raise RuntimeError(f"no owner/repo in remote: {url or '(none)'}")
-    return m.group(1)
-
-
 def _fetch_github(
     account: config.Account, repo: Path, fields: str = GH_FIELDS_FULL
 ) -> list[dict]:
     try:
-        return _gh(_owner_repo(repo), fields, account.gh_config_dir)
+        return _gh(owner_repo(repo), fields, account.gh_config_dir)
     except (RuntimeError, OSError, subprocess.SubprocessError, ValueError) as e:
         raise RuntimeError(str(e)) from e
 

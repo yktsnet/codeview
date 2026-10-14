@@ -479,7 +479,9 @@ def _card(author: str, ts: int, verb: str, body_html: str, now: float) -> str:
     )
 
 
-def issue_main(issue, refs: dict[str, str], out_root, now: float) -> tuple[str, str]:
+def issue_main(
+    issue, refs: dict[str, str], out_root, now: float, github=None
+) -> tuple[str, str]:
     """Issue ページの右側。本文とコメントのカードを古い順に並べる。"""
     esc = html.escape
     safe = not issue.trusted
@@ -489,7 +491,8 @@ def issue_main(issue, refs: dict[str, str], out_root, now: float) -> tuple[str, 
         if not text.strip():
             return '<p class="nobody">No description provided.</p>'
         body, script = render_markdown(
-            text.encode(), safe=safe, refs=refs if safe else None
+            text.encode(), safe=safe, refs=refs if safe else None,
+            github=github, account=issue.account,
         )
         if 'class="mermaid"' in body:
             scripts.append(script)
@@ -541,8 +544,11 @@ def issue_main(issue, refs: dict[str, str], out_root, now: float) -> tuple[str, 
     return main, scripts[0] if scripts else ""
 
 
-def issues_pages(board, out_root) -> None:
-    """アカウントごとの一覧、リポごとの一覧、未消化の Issue ごとのページを書く。"""
+def issues_pages(board, out_root, github=None) -> None:
+    """アカウントごとの一覧、リポごとの一覧、未消化の Issue ごとのページを書く。
+
+    github（`render.GitHubLinks`）を渡すと、本文の GitHub の URL を対応するページへ向ける。
+    """
     from .style import write
     now = time.time()
     for account, issues in board.issues.items():
@@ -580,7 +586,7 @@ def issues_pages(board, out_root) -> None:
 
             refs = {i.ref: i.href for i in rows}
             for issue in rows:
-                main, script = issue_main(issue, refs, out_root, now)
+                main, script = issue_main(issue, refs, out_root, now, github)
                 write(
                     out_root / issue.href.lstrip("/"),
                     page(

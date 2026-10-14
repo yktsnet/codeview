@@ -29,6 +29,8 @@ from codeview.layout import (
 )
 from codeview.render import (
     MAX_BYTES,
+    GitHubLinks,
+    GitHubRepo,
     LinkContext,
     human,
     is_text,
@@ -37,7 +39,11 @@ from codeview.render import (
     render_markdown,
 )
 from codeview.repo import (
+    account_of,
+    branch,
+    owner_repo,
     read_blobs,
+    remote_host,
     tracked_blobs,
 )
 from codeview.style import MIDDLEWARE, build_style, write
@@ -75,14 +81,65 @@ def _readme_of(children: dict) -> str | None:
     return None
 
 
-def build_repo(repo: Path, slug: str, out_root: Path, by_file: dict) -> int:
+def _page_entries(repo: Path) -> list[tuple[str, str]]:
+    """ページにする (パス, blob sha)。HEAD のファイルから除外パスと除外拡張子を落とす。"""
     cfg = config.load()
-    entries = [
+    return [
         (path, sha)
         for path, sha in tracked_blobs(repo)
         if not path.startswith(cfg.exclude_prefixes)
         and not path.lower().endswith(cfg.skip_exts)
     ]
+
+
+def github_links(repos: list[plugins.Repo], board) -> GitHubLinks:
+    """走査対象のうち GitHub にあるリポと、GitHub から取り込んだ Issue の索引を作る。
+
+    remote が github.com でなくても（ssh の別名など）、Issue を GitHub から取るアカウントの
+    リポは GitHub にあるとみなす。
+    """
+    accounts = {a.name: a for a in config.load().accounts}
+    found: dict[str, GitHubRepo] = {}
+    by_slug: dict[str, str] = {}
+    for group, path, slug in repos:
+        account = account_of(group, path)
+        on_github = remote_host(path) == "github.com" or (
+            account is not None and accounts[account].issues == "github"
+        )
+        if not on_github:
+            continue
+        try:
+            key = owner_repo(path).lower()
+        except RuntimeError:
+            continue
+        files = frozenset(p for p, _ in _page_entries(path))
+        dirs = {""}
+        for f in files:
+            parts = f.split("/")[:-1]
+            dirs.update("/".join(parts[: i + 1]) for i in range(len(parts)))
+        found[key] = GitHubRepo(slug, account, branch(path), files, frozenset(dirs))
+        by_slug[slug] = key
+
+    issues: dict[tuple[str, str], tuple[str, str]] = {}
+    for name, rows in board.issues.items():
+        if accounts[name].issues != "github":
+            continue
+        for issue in rows:
+            key = by_slug.get(issue.slug)
+            if key is not None:
+                issues[(key, issue.ref)] = (name, issue.href)
+    return GitHubLinks(found, issues)
+
+
+def build_repo(
+    repo: Path,
+    slug: str,
+    out_root: Path,
+    by_file: dict,
+    github: GitHubLinks | None = None,
+    account: str | None = None,
+) -> int:
+    entries = _page_entries(repo)
     blobs = read_blobs(repo, [sha for _, sha in entries])
     name = slug.split("/")[-1]
     home = str(Path.home())
@@ -143,7 +200,9 @@ def build_repo(repo: Path, slug: str, out_root: Path, by_file: dict) -> int:
         elif not is_text(data):
             body = f'<p class="empty">Binary ({human(len(data))})</p>'
         elif fname.lower().endswith((".md", ".markdown")):
-            body, extra_script = render_markdown(data, links=links_for(path))
+            body, extra_script = render_markdown(
+                data, links=links_for(path), github=github, account=account
+            )
             meta.insert(0, _lines(data))
         else:
             body, lang = render_code_lang(path, data)
@@ -201,7 +260,9 @@ def build_repo(repo: Path, slug: str, out_root: Path, by_file: dict) -> int:
             rpath = f"{parent}/{readme}" if parent else readme
             data = blobs.get(dict(entries).get(rpath, ""), b"")
             if readme.lower().endswith((".md", ".markdown")):
-                body, extra_script = render_markdown(data, links=links_for(rpath))
+                body, extra_script = render_markdown(
+                    data, links=links_for(rpath), github=github, account=account
+                )
             else:
                 body = '<pre class="plain">' + html.escape(data.decode("utf-8", "replace")) + "</pre>"
             main = (
@@ -245,11 +306,14 @@ def main(argv: list[str] | None = None) -> None:
     slugged = ctx.repos
     # ファイルページに Issue へのリンクを差し込むので、ページを書く前に全リポ分を集める
     board = collect(ctx)
+    github = github_links(slugged, board)
     for account, failed in board.failed.items():
         for name in failed:
             print(f"  issues/{account}: fetch failed: {name}", file=sys.stderr)
     for group, repo, slug in slugged:
-        n = build_repo(repo, slug, public, board.by_file)
+        n = build_repo(
+            repo, slug, public, board.by_file, github, account_of(group, repo)
+        )
         if n == 0:
             print(f"  {slug}: skip (empty)", file=sys.stderr)
             continue
@@ -259,7 +323,7 @@ def main(argv: list[str] | None = None) -> None:
     build_index(
         counts, public, board, plugins.home(ctx), plugins.side(ctx)
     )
-    issues_pages(board, public)
+    issues_pages(board, public, github)
     plugins.build(ctx)
     write(site / "functions" / "_middleware.js", MIDDLEWARE)
 

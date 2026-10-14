@@ -76,6 +76,17 @@ def read_blobs(repo: Path, shas: list[str]) -> dict[str, bytes]:
     return blobs
 
 
+def branch(repo: Path) -> str | None:
+    """HEAD が指すブランチ名。detached なら None。"""
+    proc = subprocess.run(
+        ["git", "symbolic-ref", "-q", "--short", "HEAD"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    return proc.stdout.strip() or None
+
+
 def remote_host(repo: Path) -> str | None:
     """`origin` の URL からホスト名を取り出す。remote が無ければ None。"""
     proc = subprocess.run(
@@ -90,6 +101,21 @@ def remote_host(repo: Path) -> str | None:
         r"^(?:[^@/:]+@)?([^/:]+):", url
     )
     return m.group(1) if m else None
+
+
+def owner_repo(repo: Path) -> str:
+    proc = subprocess.run(
+        ["git", "config", "--get", "remote.origin.url"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    url = proc.stdout.strip()
+    # scp 形式（`<host>:<owner>/<repo>.git`）と https 形式の両方を受ける
+    m = re.search(r"[:/]([^/:]+/[^/:]+?)(?:\.git)?/?$", url)
+    if not m:
+        raise RuntimeError(f"no owner/repo in remote: {url or '(none)'}")
+    return m.group(1)
 
 
 def account_of(group: str, repo: Path) -> str | None:

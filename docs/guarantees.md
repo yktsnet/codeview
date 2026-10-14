@@ -25,6 +25,9 @@
 - `/` 始まりのリンクは、リポのルートを基準に解決する
 - 上の解決は、ファイルページの本文でも、ディレクトリのページに埋め込んだ README でも、同じ先を指す（基準になるのは `.md` の位置であって、表示するページの位置ではない）
 - リンク先がリポ内にページを持たないとき（HEAD に無い・除外した・リポの外）は、リンクにせず文字だけを残す
+- 本文にある走査対象のリポの GitHub の URL は、生成したページに対応すれば、そのページへのリンクになる。リポのトップはリポのページ、`blob` / `tree` は、ref が HEAD のブランチ名と一致すれば、そのファイルやディレクトリのページになる。`#` 以降のアンカーは残す
+- GitHub の Issue の URL は、取り込んだ Issue で、読んでいる文書と同じアカウントのものだけ、その Issue のページへのリンクになる
+- 対応するページが無い GitHub の URL（別の ref・HEAD に無いパス・取り込んでいない Issue・別のアカウントの Issue・Pull Request など）は、外部 URL のまま残す
 
 | 保証（要約） | 対応テスト |
 |---|---|
@@ -42,6 +45,7 @@
 | Markdown 本文のリポ内リンクは生成したページを指す（ファイル・ディレクトリ・`/` 始まり・アンカー・ファイルページと埋め込み README の一致） | `test_markdown_links_point_to_generated_pages` |
 | サブディレクトリの `.md` でも、リンクの解決の基準は `.md` の位置で、ファイルページと埋め込み README が同じ先を指す | `test_markdown_links_resolve_from_md_location_in_subdirectory` |
 | ページの無い先へのリンクは文字になる | `test_markdown_links_point_to_generated_pages` |
+| GitHub の URL は、対応するページがあればそこへ向き、無ければ外部 URL のまま残る | `test_github_urls_point_to_generated_pages` |
 | 設定ファイルが無い | `test_missing_config_stops_before_build` |
 | 設定の書式誤り | `test_broken_config_stops_before_build` |
 | 読み込めない拡張 | `test_unknown_plugin_stops_before_build` |
@@ -50,6 +54,7 @@
 ### 2. `tests/test_issues.py` — codeview build (GitHub の Issue)
 
 - GitHub の Issue のページには本文とコメントを出し、コメントは古い順に並べる。GitHub の URL へのリンクは出さない
+- ただし本文の GitHub の URL が生成したページに対応するとき（台帳 1 と同じ規則。Issue は同じアカウントのものだけ）は、そのページへのリンクにする
 - GitHub の Issue の本文とコメントに含まれる生の HTML は、タグとして出さずエスケープする
 - あるリポの Issue の取得に失敗しても build は止まらない。一覧に `fetch failed: <リポ>` を出し、標準エラーにも出す。他のリポの Issue は出る
 - アカウントごとに Issue の一覧を分け、`gh_config_dir` を設定したアカウントのリポは、その config dir で `gh` を呼ぶ
@@ -59,6 +64,7 @@
 |---|---|
 | 本文とコメント（古い順） | `test_github_issue_page_comments_oldest_first` |
 | Issue のページのリンクは相対パス | `test_issue_pages_link_relatively` |
+| 本文の GitHub の URL は、対応するページがあればそこへ向く | `test_github_urls_in_issue_body_point_to_generated_pages` |
 | 生の HTML のエスケープ | `test_github_raw_html_is_escaped` |
 | 取得の失敗で止まらない | `test_github_fetch_failure_does_not_stop_build` |
 | アカウントごとの一覧と `gh_config_dir` | `test_two_accounts_use_their_own_gh_config` |
