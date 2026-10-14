@@ -47,7 +47,7 @@ def test_issue_source_next_to_config(site):
     # 取り込み元が trusted を立てなければ、本文の HTML はエスケープされる
     first = (public / "issues" / "me" / "alpha" / "1.html").read_text()
     assert "<b>raw</b>" not in first
-    assert "/issues/me/alpha/1.html" in (public / "alpha" / "main.py.html").read_text()
+    assert "../issues/me/alpha/1.html" in (public / "alpha" / "main.py.html").read_text()
 
 
 def test_issue_source_must_be_listed_plugin(site):

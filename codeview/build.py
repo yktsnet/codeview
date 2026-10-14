@@ -175,6 +175,7 @@ def build_repo(repo: Path, slug: str, out_root: Path, by_file: dict) -> int:
                 detail=True,
                 extra_script=extra_script + FILE_SCRIPT,
                 width=width,
+                path=f"/{slug}/{path}.html",
             ),
         )
 
@@ -209,6 +210,7 @@ def build_repo(repo: Path, slug: str, out_root: Path, by_file: dict) -> int:
                 extra_script=extra_script,
                 width="w-md" if readme else "",
                 readme=readme is not None,
+                path=f"/{slug}/" + (f"{parent}/" if parent else "") + "index.html",
             ),
         )
     return len(entries)

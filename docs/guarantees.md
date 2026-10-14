@@ -17,6 +17,9 @@
 - ファイルのページは、ヘッダに行数と（ハイライトできれば）言語を出し、本文側にトップからのパンくずを置き、同じディレクトリの前後のファイル（左の一覧と同じ並び）へのリンクを出す。ファイルが1つのディレクトリでは前後を出さない
 - Markdown のページは、見出し（h1〜h3、表題1つの h1 を除く）が4つ以上あれば、先頭に畳める目次を出す
 - Mermaid の図を含む Markdown のページは、外部のホストからスクリプトを読まない。読むスクリプトは `public/` に書き出したファイルである
+- 本体が書くページの `href` / `src` は、外部 URL・ページ内アンカーを除いて `/` で始まらない相対パスである
+- その相対パスは、ページの位置から解決すると `public/` 内に実在するファイルを指す（ディレクトリへのリンクは `index.html` まで書く）
+- 拡張の `side()` / `home()` が返す HTML 内の `/` 始まりのリンクも、同じく相対パスに直る
 
 | 保証（要約） | 対応テスト |
 |---|---|
@@ -29,6 +32,8 @@
 | ファイルページの行数・言語・パンくず・前後のリンク | `test_file_page_navigation` |
 | 長い Markdown の目次 | `test_long_markdown_gets_toc` |
 | Mermaid の図のページは同梱のスクリプトだけを読む | `test_mermaid_page_loads_only_bundled_script` |
+| リンクは相対パスで、実在するファイルを指す | `test_links_are_relative_and_resolve` |
+| 拡張の `side()` / `home()` のリンクも相対パスに直る | `test_extension_home_and_side_links_are_relative` |
 | 設定ファイルが無い | `test_missing_config_stops_before_build` |
 | 設定の書式誤り | `test_broken_config_stops_before_build` |
 | 読み込めない拡張 | `test_unknown_plugin_stops_before_build` |
@@ -40,10 +45,12 @@
 - GitHub の Issue の本文とコメントに含まれる生の HTML は、タグとして出さずエスケープする
 - あるリポの Issue の取得に失敗しても build は止まらない。一覧に `fetch failed: <リポ>` を出し、標準エラーにも出す。他のリポの Issue は出る
 - アカウントごとに Issue の一覧を分け、`gh_config_dir` を設定したアカウントのリポは、その config dir で `gh` を呼ぶ
+- Issue のページの戻るリンク・左の一覧・CSS は、相対パスで `public/` 内の実在するファイルを指す
 
 | 保証（要約） | 対応テスト |
 |---|---|
 | 本文とコメント（古い順） | `test_github_issue_page_comments_oldest_first` |
+| Issue のページのリンクは相対パス | `test_issue_pages_link_relatively` |
 | 生の HTML のエスケープ | `test_github_raw_html_is_escaped` |
 | 取得の失敗で止まらない | `test_github_fetch_failure_does_not_stop_build` |
 | アカウントごとの一覧と `gh_config_dir` | `test_two_accounts_use_their_own_gh_config` |

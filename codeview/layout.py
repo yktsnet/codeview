@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import posixpath
 import re
 import time
 from datetime import datetime
@@ -15,6 +16,38 @@ def get_style_href() -> str:
     return STYLE_HREF
 
 
+# <script> は開きタグだけを書き換える。本文の JS には触れない
+_TAG = re.compile(r"(<script\b[^>]*>)(.*?)(</script>)|(<[a-zA-Z][^>]*>)", re.S)
+_LINK_ATTR = re.compile(r'(\s(?:href|src)=")(/[^"]*)"')
+
+
+def relativize(doc: str, path: str) -> str:
+    """タグ内の `href` / `src` のうち `/` 始まりのものを、`path` のページからの相対パスにする。
+
+    `path` はそのページ自身のサイト内パス。`/` で終わる先はディレクトリなので
+    `index.html` まで書く（file:// ではディレクトリを開けない）。`//` 始まりは外部 URL。
+    エスケープ済みのコード（`&lt;a href=...`）は `<` から始まらないので書き換わらない。
+    """
+    here = posixpath.dirname(path)
+
+    def link(m: re.Match) -> str:
+        target = m.group(2)
+        if target.startswith("//"):
+            return m.group(0)
+        target, sep, frag = target.partition("#")
+        if target.endswith("/"):
+            target += "index.html"
+        rel = posixpath.relpath(target, here)
+        return f'{m.group(1)}{rel}{sep}{frag}"'
+
+    def tag(m: re.Match) -> str:
+        if m.group(4) is not None:
+            return _LINK_ATTR.sub(link, m.group(4))
+        return _LINK_ATTR.sub(link, m.group(1)) + m.group(2) + m.group(3)
+
+    return _TAG.sub(tag, doc)
+
+
 def page(
     title: str,
     side: str,
@@ -24,14 +57,16 @@ def page(
     home: bool = False,
     width: str = "",
     readme: bool = False,
+    path: str = "",
 ) -> str:
+    """path はこのページ自身のサイト内パス。渡すとリンクを相対パスに直す。"""
     cls = (
         ' class="detail"' if detail
         else ' class="home"' if home
         else ' class="readme"' if readme
         else ""
     )
-    return (
+    doc = (
         "<!doctype html><html lang=en><head><meta charset=utf-8>"
         '<meta name=viewport content="width=device-width,initial-scale=1">'
         f"<title>{html.escape(title)}</title>"
@@ -42,6 +77,7 @@ def page(
         f"{extra_script}"
         "</body></html>"
     )
+    return relativize(doc, path) if path else doc
 
 
 def crumb(slug: str, rel_parts: list[str], is_file: bool, home: bool = False) -> str:
@@ -267,7 +303,10 @@ def build_index(
         repo_count = sum(len(items) for items in counts.values())
         stats = f"{repo_count} repos / {total:,} files"
         main = f'<p class="empty">{stats}<br>Select a repository</p>'
-        write(out_root / "index.html", page("codeview", side, main, detail=False))
+        write(
+            out_root / "index.html",
+            page("codeview", side, main, detail=False, path="/index.html"),
+        )
         return
     # script は main の中ではなく、ほかのページと同じくページ末尾に置く
     joined = "".join(homes)
@@ -282,6 +321,7 @@ def build_index(
             detail=False,
             extra_script=scripts,
             home=True,
+            path="/index.html",
         ),
     )
 
@@ -517,6 +557,7 @@ def issues_pages(board, out_root) -> None:
                 ),
                 detail=True,
                 width="w-issue",
+                path=f"/issues/{account}/index.html",
             ),
         )
 
@@ -533,6 +574,7 @@ def issues_pages(board, out_root) -> None:
                     _list_main(f"/issues/{account}/", account, heading, rows),
                     detail=True,
                     width="w-issue",
+                    path=d + "index.html",
                 ),
             )
 
@@ -548,5 +590,6 @@ def issues_pages(board, out_root) -> None:
                         detail=True,
                         extra_script=script + TIME_SCRIPT,
                         width="w-issue",
+                        path=issue.href,
                     ),
                 )
