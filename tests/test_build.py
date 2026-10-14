@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from conftest import commit
 
 
@@ -76,6 +78,19 @@ def test_long_markdown_gets_toc(site):
     assert 'href="#節0"' in page and 'id="節0"' in page
     # 見出しの少ない文書には付けない
     assert 'class="toc"' not in (public / "alpha" / "docs" / "guide.md.html").read_text()
+
+
+def test_mermaid_page_loads_only_bundled_script(site):
+    md = "# 図\n\n```mermaid\ngraph TD\n  A --> B\n```\n"
+    commit(site.home / "own" / "alpha", {"docs/diagram.md": md})
+    public, _ = site.build()
+    page = (public / "alpha" / "docs" / "diagram.md.html").read_text()
+    assert 'class="mermaid"' in page
+    assert not re.search(r"(src\s*=|import\b[^;\n]*)[\"' (]*https?://", page)
+    srcs = re.findall(r'<script\s+src="([^"]+)"', page)
+    assert srcs and all(s.startswith("/") for s in srcs)
+    for src in srcs:
+        assert (public / src.lstrip("/")).is_file()
 
 
 def test_missing_config_stops_before_build(site):
