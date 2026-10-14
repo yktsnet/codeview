@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import html
+import json
 import os
 import shutil
 import sys
@@ -41,6 +43,8 @@ from codeview.render import (
 from codeview.repo import (
     account_of,
     branch,
+    head,
+    markdown_mentions,
     owner_repo,
     read_blobs,
     remote_host,
@@ -285,8 +289,75 @@ def build_repo(
     return len(entries)
 
 
+# 差分 build の記録。出力先の直下に置き、public/ には入れない（配信に載せない）
+STATE_NAME = ".codeview-build.json"
+
+
+def _digest(obj) -> str:
+    text = json.dumps(obj, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def _code_digest() -> str:
+    """本体のソースと同梱物の指紋。版の番号は開発中に動かないので、中身で見る。"""
+    root = Path(__file__).resolve().parent
+    h = hashlib.sha256()
+    for path in sorted(root.rglob("*")):
+        if path.is_file() and path.suffix in (".py", ".js") and "__pycache__" not in path.parts:
+            h.update(str(path.relative_to(root)).encode() + b"\0" + path.read_bytes())
+    return h.hexdigest()
+
+
+def _github_digest(github: GitHubLinks) -> str:
+    return _digest(
+        {
+            "repos": {
+                k: [r.slug, r.account, r.branch, sorted(r.files)]
+                for k, r in github.repos.items()
+            },
+            "issues": [[*k, *v] for k, v in sorted(github.issues.items())],
+        }
+    )
+
+
+def _issues_digest(issues) -> str:
+    return _digest([dataclasses.asdict(i) for i in issues])
+
+
+def _load_state(path: Path) -> dict | None:
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def _clear(public: Path, keep: set[str]) -> None:
+    """public/ から、残すリポ（slug）のページ以外を消す。"""
+    if not public.is_dir():
+        return
+    tops = {slug.split("/")[0] for slug in keep}
+    for child in public.iterdir():
+        if child.name in tops:
+            continue
+        if child.is_dir() and not child.is_symlink():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+    # group/name の slug は、同じグループの残さないリポだけを消す
+    for top in tops:
+        for child in (public / top).iterdir():
+            if child.is_dir() and f"{top}/{child.name}" not in keep and top not in keep:
+                shutil.rmtree(child)
+
+
 def main(argv: list[str] | None = None) -> None:
-    argparse.ArgumentParser(prog="codeview build", description=__doc__.splitlines()[0]).parse_args(argv)
+    parser = argparse.ArgumentParser(prog="codeview build", description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="rebuild only the repos whose inputs changed since the last incremental build",
+    )
+    args = parser.parse_args(argv)
     # 生成を始める前に設定と拡張を読む。誤っていれば public/ にも触れずに止まる
     site = Path(os.environ.get("CODEVIEW_OUT") or Path.cwd())
     public = site / "public"
@@ -296,11 +367,6 @@ def main(argv: list[str] | None = None) -> None:
         extra_css = plugins.css(ctx)
     except (config.ConfigError, plugins.PluginError) as e:
         raise SystemExit(f"error: {e}") from None
-    if public.exists():
-        shutil.rmtree(public)
-
-    build_style(public, extra_css)
-    build_mermaid(public)
 
     counts = ctx.counts
     slugged = ctx.repos
@@ -310,10 +376,66 @@ def main(argv: list[str] | None = None) -> None:
     for account, failed in board.failed.items():
         for name in failed:
             print(f"  issues/{account}: fetch failed: {name}", file=sys.stderr)
+
+    # リポのページの入力は、そのリポの HEAD・属するアカウント・そのリポを対象に挙げた Issue・
+    # 本体と設定、それに Markdown が GitHub の URL を含むなら GitHub の索引（他のリポの中身）
+    state = {
+        "global": _digest([_code_digest(), config.load().source.read_text(), extra_css]),
+        "github": _github_digest(github),
+        "board": _issues_digest(i for rows in board.issues.values() for i in rows),
+        "failed": board.failed,
+        "repos": {},
+    }
+    # ファイルのページの見出しに出す、対象に挙げた Issue へのリンク
+    by_slug: dict[str, list] = {}
+    for (slug, path), rows in board.by_file.items():
+        by_slug.setdefault(slug, []).extend((path, i.repo, i.ref, i.href) for i in rows)
     for group, repo, slug in slugged:
+        state["repos"][slug] = {
+            "head": head(repo),
+            # ファイルのページはリポの置き場所を出す
+            "path": str(repo),
+            "account": account_of(group, repo),
+            "issues": _digest(sorted(by_slug.get(slug, ()))),
+        }
+
+    state_path = site / STATE_NAME
+    prev = _load_state(state_path) if args.incremental else None
+    keep: dict[str, int] = {}
+    if prev and public.is_dir() and prev.get("global") == state["global"]:
+        github_same = prev.get("github") == state["github"]
+        for group, repo, slug in slugged:
+            old = prev.get("repos", {}).get(slug)
+            if (
+                old
+                and old.get("files")
+                and all(old.get(k) == v for k, v in state["repos"][slug].items())
+                and (public / slug).is_dir()
+                and (github_same or not markdown_mentions(repo, "github.com/"))
+            ):
+                keep[slug] = old["files"]
+        same = {k: prev.get(k) for k in ("board", "failed")} == {
+            k: state[k] for k in ("board", "failed")
+        }
+        if same and len(keep) == len(slugged) and set(prev.get("repos", {})) == set(state["repos"]):
+            print("build skipped: no change since the last build", file=sys.stderr)
+            return
+
+    _clear(public, set(keep))
+    build_style(public, extra_css)
+    build_mermaid(public)
+
+    for group, repo, slug in slugged:
+        if slug in keep:
+            n = keep[slug]
+            state["repos"][slug]["files"] = n
+            counts.setdefault(group, []).append((slug, repo.name, n))
+            print(f"  {slug}: unchanged", file=sys.stderr)
+            continue
         n = build_repo(
             repo, slug, public, board.by_file, github, account_of(group, repo)
         )
+        state["repos"][slug]["files"] = n
         if n == 0:
             print(f"  {slug}: skip (empty)", file=sys.stderr)
             continue
@@ -326,6 +448,8 @@ def main(argv: list[str] | None = None) -> None:
     issues_pages(board, public, github)
     plugins.build(ctx)
     write(site / "functions" / "_middleware.js", MIDDLEWARE)
+    if args.incremental:
+        state_path.write_text(json.dumps(state, ensure_ascii=False) + "\n")
 
     total = sum(1 for p in public.rglob("*") if p.is_file())
     print(f"{total} files -> {public}", file=sys.stderr)

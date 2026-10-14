@@ -28,6 +28,8 @@
 - 本文にある走査対象のリポの GitHub の URL は、生成したページに対応すれば、そのページへのリンクになる。リポのトップはリポのページ、`blob` / `tree` は、ref が HEAD のブランチ名と一致すれば、そのファイルやディレクトリのページになる。`#` 以降のアンカーは残す
 - GitHub の Issue の URL は、取り込んだ Issue で、読んでいる文書と同じアカウントのものだけ、その Issue のページへのリンクになる
 - 対応するページが無い GitHub の URL（別の ref・HEAD に無いパス・取り込んでいない Issue・別のアカウントの Issue・Pull Request など）は、外部 URL のまま残す
+- `--incremental` を付けると、前回の `--incremental` から入力が変わったリポだけを作り直す。出力は、付けずに作り直したものと同じになる。入力には、リポの HEAD・置き場所・アカウント・そのリポのファイルを対象に挙げた Issue・本体と設定のほか、Markdown が GitHub の URL を含むリポでは他のリポの中身と Issue の一覧も含む
+- `--incremental` で、どのリポも Issue も変わっていなければ、何も書かずに終わる。記録は `public/` の外に置く
 
 | 保証（要約） | 対応テスト |
 |---|---|
@@ -46,6 +48,8 @@
 | サブディレクトリの `.md` でも、リンクの解決の基準は `.md` の位置で、ファイルページと埋め込み README が同じ先を指す | `test_markdown_links_resolve_from_md_location_in_subdirectory` |
 | ページの無い先へのリンクは文字になる | `test_markdown_links_point_to_generated_pages` |
 | GitHub の URL は、対応するページがあればそこへ向き、無ければ外部 URL のまま残る | `test_github_urls_point_to_generated_pages` |
+| `--incremental` の出力は全体の作り直しと同じ（他のリポの変化・消えたリポを含む） | `test_incremental_build_matches_full_build` |
+| `--incremental` は変化が無ければ何も書かない | `test_incremental_build_skips_when_nothing_changed` |
 | 設定ファイルが無い | `test_missing_config_stops_before_build` |
 | 設定の書式誤り | `test_broken_config_stops_before_build` |
 | 読み込めない拡張 | `test_unknown_plugin_stops_before_build` |
@@ -79,11 +83,13 @@
 - `issues` に挙げた拡張が `issues()` を持たなければ、`no issues()` を出して非0で終わり、`public/` を作らない
 - `[[accounts]]` が3つ以上なら、`1 to 2` を含むエラーで非0で終わり、`public/` を作らない
 - `issues` が `github` でないアカウントに `gh_config_dir` を書くと、非0で終わる
+- `--incremental` では、拡張が返した Issue の `targets` が変われば、リポの HEAD が同じでも、そのリポのページを作り直す
 
 | 保証（要約） | 対応テスト |
 |---|---|
 | 設定の隣の拡張と `ctx.options` | `test_issue_source_next_to_config` |
 | `waits` のリンクと一覧外の依存 | `test_issue_source_next_to_config` |
+| `--incremental` は Issue の対象の変化でもリポを作り直す | `test_incremental_build_follows_issue_targets` |
 | `trusted` でない本文のエスケープ | `test_issue_source_next_to_config` |
 | `targets` のファイルから Issue へのリンク | `test_issue_source_next_to_config` |
 | 未登録の取り込み元 | `test_issue_source_must_be_listed_plugin` |

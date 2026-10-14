@@ -76,6 +76,27 @@ def read_blobs(repo: Path, shas: list[str]) -> dict[str, bytes]:
     return blobs
 
 
+def head(repo: Path) -> str | None:
+    """HEAD のコミット。コミットが1つも無ければ None。"""
+    proc = subprocess.run(
+        ["git", "rev-parse", "-q", "--verify", "HEAD"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    return proc.stdout.strip() or None
+
+
+def markdown_mentions(repo: Path, word: str) -> bool:
+    """HEAD の Markdown のどれかが word を含むか（大文字小文字を区別しない）。"""
+    proc = subprocess.run(
+        ["git", "grep", "-q", "-I", "-i", "-F", "-e", word, "HEAD", "--", "*.md", "*.markdown"],
+        cwd=repo,
+        capture_output=True,
+    )
+    return proc.returncode == 0
+
+
 def branch(repo: Path) -> str | None:
     """HEAD が指すブランチ名。detached なら None。"""
     proc = subprocess.run(

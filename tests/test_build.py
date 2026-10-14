@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
+import sys
 from html.parser import HTMLParser
+from pathlib import Path
 
 from conftest import commit
 
@@ -329,3 +333,62 @@ def test_github_urls_point_to_generated_pages(site):
         for name in ("sha", "gone", "skipped", "closed", "xacct", "pull", "unknown"):
             assert found[name].startswith("https://github.com/"), name
     _assert_relative_and_resolvable(public)
+
+
+def _build_incremental(site):
+    proc = site.run("-m", "codeview", "build", "--incremental")
+    return Path(site.env["CODEVIEW_OUT"]) / "public", proc.stderr
+
+
+def _full_build_elsewhere(site, tmp_path):
+    out = tmp_path / "full"
+    subprocess.run(
+        [sys.executable, "-m", "codeview", "build"],
+        cwd=site.config.parent,
+        env={**site.env, "CODEVIEW_OUT": str(out)},
+        check=True,
+        capture_output=True,
+    )
+    return out / "public"
+
+
+def _tree(public):
+    return {
+        str(p.relative_to(public)): p.read_bytes()
+        for p in public.rglob("*")
+        if p.is_file()
+    }
+
+
+def test_incremental_build_skips_when_nothing_changed(site):
+    public, _ = _build_incremental(site)
+    page = public / "beta" / "app.py.html"
+    before = page.stat().st_mtime_ns
+    _, err = _build_incremental(site)
+    assert "build skipped" in err
+    assert page.stat().st_mtime_ns == before
+    # 記録は public/ の外に置く（配信に載せない）
+    assert not any(p.name == ".codeview-build.json" for p in public.rglob("*"))
+
+
+def test_incremental_build_matches_full_build(site, tmp_path):
+    _build_incremental(site)
+    alpha = site.home / "own" / "alpha"
+    beta = site.home / "work" / "beta"
+    commit(alpha, {"README.md": "[app](https://github.com/org/beta/blob/main/app.py) [x](docs/guide.md)\n"})
+    public, err = _build_incremental(site)
+    assert "beta: unchanged" in err and "alpha: 4 files" in err
+    assert _tree(public) == _tree(_full_build_elsewhere(site, tmp_path / "1"))
+
+    # beta だけが変わっても、beta の中身を GitHub の URL で指す alpha は作り直す
+    (beta / "app.py").unlink()
+    commit(beta, {"lib.py": "w = 5\n"})
+    public, err = _build_incremental(site)
+    assert "alpha: unchanged" not in err
+    assert _tree(public) == _tree(_full_build_elsewhere(site, tmp_path / "2"))
+
+    # 消えたリポのページは残らない
+    shutil.rmtree(site.home / "work" / "gamma")
+    public, err = _build_incremental(site)
+    assert not (public / "gamma").exists()
+    assert _tree(public) == _tree(_full_build_elsewhere(site, tmp_path / "3"))

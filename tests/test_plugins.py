@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import textwrap
+from pathlib import Path
 
 # 本体の外に置く Issue の取り込み元。リポごとに1本返し、2本目は1本目を待つ
 SOURCE = '''
@@ -97,3 +98,16 @@ def test_gh_config_dir_only_for_github(site):
     public, proc = site.build(check=False)
     assert proc.returncode != 0
     assert "gh_config_dir" in proc.stderr
+
+
+def test_incremental_build_follows_issue_targets(site):
+    # 拡張の Issue の対象が変われば、リポの HEAD が同じでも、そのリポのページを作り直す
+    (site.config.parent / "extsrc.py").write_text(SOURCE)
+    _use_source(site, "extsrc")
+    site.run("-m", "codeview", "build", "--incremental")
+    (site.config.parent / "extsrc.py").write_text(SOURCE.replace('targets=["main.py"]', 'targets=["README.md"]'))
+    proc = site.run("-m", "codeview", "build", "--incremental")
+    assert "alpha: unchanged" not in proc.stderr
+    out = Path(site.env["CODEVIEW_OUT"]) / "public" / "alpha"
+    assert "issues/me/alpha/1.html" not in (out / "main.py.html").read_text()
+    assert "issues/me/alpha/1.html" in (out / "README.md.html").read_text()
