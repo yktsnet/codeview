@@ -298,3 +298,34 @@ def test_markdown_links_resolve_from_md_location_in_subdirectory(site):
         # exclude_prefixes で除外したファイルはページが無いので文字になる
         assert "sec" not in found and "sec" in page_path.read_text()
     _assert_relative_and_resolvable(public)
+
+
+GITHUB_LINKS = """# alpha
+
+[blob](https://github.com/me/alpha/blob/main/docs/guide.md#usage)
+[tree](https://github.com/Me/Alpha/tree/main/docs) [repo](https://github.com/me/alpha)
+[cross](https://github.com/org/beta/blob/main/app.py) [issue](https://github.com/me/alpha/issues/3)
+[sha](https://github.com/me/alpha/blob/0123abc/main.py) [gone](https://github.com/me/alpha/blob/main/nothing.md)
+[skipped](https://github.com/me/alpha/blob/main/logo.png) [closed](https://github.com/me/alpha/issues/99)
+[xacct](https://github.com/org/beta/issues/7) [pull](https://github.com/me/alpha/pull/1)
+[unknown](https://github.com/me/other/blob/main/x.md)
+"""
+
+
+def test_github_urls_point_to_generated_pages(site):
+    commit(site.home / "own" / "alpha", {"README.md": GITHUB_LINKS})
+    public, _ = site.build()
+    out = public / "alpha"
+    for page_path in (out / "README.md.html", out / "index.html"):
+        found = _anchors(page_path)
+        assert _target(page_path, found["blob"]) == (out / "docs" / "guide.md.html").resolve()
+        assert found["blob"].endswith("#usage")
+        assert _target(page_path, found["tree"]) == (out / "docs" / "index.html").resolve()
+        assert _target(page_path, found["repo"]) == (out / "index.html").resolve()
+        # ファイルへのリンクはアカウントをまたいでよい
+        assert _target(page_path, found["cross"]) == (public / "beta" / "app.py.html").resolve()
+        assert _target(page_path, found["issue"]) == (public / "issues" / "me" / "alpha" / "3.html").resolve()
+        # 対応するページが無い・別の ref・別アカウントの Issue は、外部 URL のまま残す
+        for name in ("sha", "gone", "skipped", "closed", "xacct", "pull", "unknown"):
+            assert found[name].startswith("https://github.com/"), name
+    _assert_relative_and_resolvable(public)

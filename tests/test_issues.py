@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from html.parser import HTMLParser
 
+from conftest import gh_row
+
 
 class _Links(HTMLParser):
     def __init__(self):
@@ -40,6 +42,27 @@ def test_issue_pages_link_relatively(site):
                 continue
             assert not link.startswith("/"), f"{page_path}: {link}"
             assert (page_path.parent / link.split("#")[0]).resolve().is_file(), f"{page_path}: {link}"
+
+
+def test_github_urls_in_issue_body_point_to_generated_pages(site):
+    body = (
+        "[file](https://github.com/org/beta/blob/main/app.py) "
+        "<https://github.com/org/beta/issues/7> "
+        "[other account](https://github.com/me/alpha/issues/3) "
+        "[pull](https://github.com/org/beta/pull/2)"
+    )
+    site.set_gh("beta", [gh_row(7, "beta の問い", "2026-02-01T00:00:00Z", body=body)])
+    public, _ = site.build()
+    page_path = public / "issues" / "work" / "beta" / "7.html"
+    parser = _Links()
+    parser.feed(page_path.read_text())
+    targets = {(page_path.parent / link.split("#")[0]).resolve() for link in parser.found}
+    assert (public / "beta" / "app.py.html").resolve() in targets
+    assert page_path.resolve() in targets
+    # 別アカウントの Issue と、対応するページの無い URL はリンクにしない
+    assert (public / "issues" / "me" / "alpha" / "3.html").resolve() not in targets
+    assert not any("github.com" in link for link in parser.found)
+    assert "other account" in page_path.read_text()
 
 
 def test_github_raw_html_is_escaped(site):
