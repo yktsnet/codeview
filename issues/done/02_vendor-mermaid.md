@@ -1,7 +1,7 @@
 ## Mermaid を CDN から読まず生成物に同梱する
 id: 02
 branch-slug: vendor-mermaid
-status: open
+status: close
 parent: codeview-26
 type: feat
 対象: codeview/render.py, codeview/build.py, codeview/assets/mermaid.min.js (新規), codeview/assets/LICENSE.mermaid (新規), pyproject.toml, tests/test_build.py, tests/conftest.py, docs/guarantees.md
