@@ -216,15 +216,16 @@ def render_markdown(
     toc = "" if safe else _toc(getattr(md, "toc_tokens", []))
     body = f'<div class="markdown-body">{toc}{html_content}</div>'
 
-    script = """<script type="module">
-import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    # build.py が書き出した同梱の mermaid を読む。通常のスクリプトなので file:// でも動く
+    from codeview import build
 
+    script = (
+        f'<script src="{build.MERMAID_HREF}"></script>\n'
+        """<script>
 mermaid.initialize({ startOnLoad: false, theme: 'dark' });
-
-try {
-  await mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
-} catch (e) {
+mermaid.run({ nodes: document.querySelectorAll('.mermaid') }).catch(function (e) {
   console.error('Mermaid render error:', e);
-}
+});
 </script>"""
+    )
     return body, script

@@ -15,5 +15,8 @@ codeview = "codeview.__main__:main"
 [tool.setuptools]
 packages = ["codeview"]
 
+[tool.setuptools.package-data]
+codeview = ["assets/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

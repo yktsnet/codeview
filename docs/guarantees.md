@@ -16,6 +16,7 @@
 - `functions/_middleware.js` は、ホストが `*.pages.dev` のリクエストに 404 を返す
 - ファイルのページは、ヘッダに行数と（ハイライトできれば）言語を出し、本文側にトップからのパンくずを置き、同じディレクトリの前後のファイル（左の一覧と同じ並び）へのリンクを出す。ファイルが1つのディレクトリでは前後を出さない
 - Markdown のページは、見出し（h1〜h3、表題1つの h1 を除く）が4つ以上あれば、先頭に畳める目次を出す
+- Mermaid の図を含む Markdown のページは、外部のホストからスクリプトを読まない。読むスクリプトは `public/` に書き出したファイルである
 
 | 保証（要約） | 対応テスト |
 |---|---|
@@ -27,6 +28,7 @@
 | 拡張なしの出力 | `test_no_plugins_means_plain_top` |
 | ファイルページの行数・言語・パンくず・前後のリンク | `test_file_page_navigation` |
 | 長い Markdown の目次 | `test_long_markdown_gets_toc` |
+| Mermaid の図のページは同梱のスクリプトだけを読む | `test_mermaid_page_loads_only_bundled_script` |
 | 設定ファイルが無い | `test_missing_config_stops_before_build` |
 | 設定の書式誤り | `test_broken_config_stops_before_build` |
 | 読み込めない拡張 | `test_unknown_plugin_stops_before_build` |

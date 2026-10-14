@@ -6,10 +6,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import os
 import shutil
 import sys
+from importlib import resources
 from pathlib import Path
 
 from codeview import config, plugins
@@ -41,6 +43,18 @@ from codeview.style import MIDDLEWARE, build_style, write
 
 # GitHub と同じく、ディレクトリに README があれば一覧の下に描く。Markdown を優先する
 README_ORDER = (".md", ".markdown", "", ".txt", ".rst")
+MERMAID_HREF = "/mermaid.js"
+
+
+def build_mermaid(out_root: Path) -> str:
+    global MERMAID_HREF
+    data = resources.files("codeview").joinpath("assets/mermaid.min.js").read_bytes()
+    digest = hashlib.sha256(data).hexdigest()[:10]
+    MERMAID_HREF = f"/mermaid.{digest}.js"
+    target = out_root / f"mermaid.{digest}.js"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    return MERMAID_HREF
 
 
 def _lines(data: bytes) -> str:
@@ -215,6 +229,7 @@ def main(argv: list[str] | None = None) -> None:
         shutil.rmtree(public)
 
     build_style(public, extra_css)
+    build_mermaid(public)
 
     counts = ctx.counts
     slugged = ctx.repos
