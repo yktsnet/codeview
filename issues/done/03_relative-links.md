@@ -1,7 +1,7 @@
 ## 生成するページのリンクを相対パスにして file:// で読めるようにする
 id: 03
 branch-slug: relative-links
-status: open
+status: close
 parent: codeview-26
 type: feat
 対象: codeview/layout.py, codeview/build.py, tests/test_build.py, tests/test_issues.py, docs/guarantees.md, README.md, README.en.md
