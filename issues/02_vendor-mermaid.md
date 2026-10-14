@@ -4,7 +4,7 @@ branch-slug: vendor-mermaid
 status: open
 parent: codeview-26
 type: feat
-対象: codeview/render.py, codeview/build.py, codeview/assets/mermaid.min.js (新規), codeview/assets/LICENSE.mermaid (新規), pyproject.toml, tests/test_build.py, docs/guarantees.md
+対象: codeview/render.py, codeview/build.py, codeview/assets/mermaid.min.js (新規), codeview/assets/LICENSE.mermaid (新規), pyproject.toml, tests/test_build.py, tests/conftest.py, docs/guarantees.md
 内容: Markdown の Mermaid 図は、いまは jsdelivr から ESM を import して描いている（`codeview/render.py:219`）。そのため生成物をオフラインで読むと図が出ない。版を固定した mermaid の単一ファイルを本体に同梱し、build が `public/` へ書き出して、ページはそれを読むようにする。
 対象外: リンクの相対パス化（03 で扱う）。mermaid の版を 11 系へ上げること。build のときに図を SVG へ描いておくこと（mermaid-cli は Node と headless Chrome が要り、依存の方針から外れる）。
 仮定: 同梱するのは mermaid 10 系の最新パッチの UMD 版 `dist/mermaid.min.js`（単一ファイル、約 3MB）とする。いまの `mermaid@10` と同じ系統なので描画は変わらない。リポが約 3MB 増えるのは許容する。

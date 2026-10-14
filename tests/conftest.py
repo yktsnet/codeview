@@ -197,8 +197,9 @@ def site(tmp_path: Path) -> Site:
     config = tmp_path / "site" / "codeview.toml"
     make_repo(config.parent, {"codeview.toml": textwrap.dedent(CONFIG).format(home=home)})
 
+    # 端末の GH_CONFIG_DIR が漏れると、gh_config_dir を設定しないアカウントの呼び出しに乗る
     env = {
-        **os.environ,
+        **{k: v for k, v in os.environ.items() if k != "GH_CONFIG_DIR"},
         "HOME": str(home),
         "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
         "PYTHONPATH": str(ROOT),
