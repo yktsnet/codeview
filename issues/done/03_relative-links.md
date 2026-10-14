@@ -1,3 +1,32 @@
+## PR記録: feat: 生成するページのリンクを相対パスにして file:// で読めるようにする
+issue: 03 (03_relative-links.md)
+PR: https://github.com/yktsnet/codeview/pull/15
+
+## 変更内容
+- `layout.relativize()` を足し、`page()` に省略可能な `path`（そのページ自身のサイト内パス）を追加。渡されたときだけ、タグ内の `href` / `src` の `/` 始まりを相対パスに直す。`/` 終わりは `index.html` を補い、`//`・`#` 始まり・エスケープ済みコード・`<script>` 本文は触らない
+- `layout.py` と `build.py` の `page()` 呼び出しすべてで `path` を渡す。内部のリンク（`Issue.href` など）は絶対パスのまま
+- README / README.en.md に、サーバー無しで `public/index.html` を開けば読めることを追記
+- `tests/test_plugins.py` の既存 assert 1 行を相対パスに直した（Issue の対象外だが、相対化で必然的に壊れるため承認を得て同 Issue で修正）
+
+## 保証
+- href/src は相対パス、実在ファイルを指す → `test_links_are_relative_and_resolve`
+- 拡張の side()/home() のリンクも相対化 → `test_extension_home_and_side_links_are_relative`
+- Issue ページのリンク → `test_issue_pages_link_relatively`
+
+## 検証手順
+`codeview build` 後に Finder から `public/index.html` を開いて辿れること、CSS、Mermaid の描画。`codeview serve` と Cloudflare でも同様。
+
+## 確認者の判定
+| 区分 | 判定 |
+|---|---|
+| pytest 30 passed | 合 |
+| 全 HTML のリンクが相対で実在 | 合 |
+| 人が見るもの（file://・serve・Cloudflare） | 判定できない |
+| 保証（新規4項目・既存） | 合 |
+| 範囲の外 | test_plugins.py 1 行（承認済み） |
+
+---
+
 ## 生成するページのリンクを相対パスにして file:// で読めるようにする
 id: 03
 branch-slug: relative-links
