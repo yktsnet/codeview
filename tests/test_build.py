@@ -273,3 +273,28 @@ def test_markdown_links_point_to_generated_pages(site):
     assert _target(page_path, found["up"]) == (out / "README.md.html").resolve()
     assert "far" not in found and "far" in page_path.read_text()
     _assert_relative_and_resolvable(public)
+
+
+def test_markdown_links_resolve_from_md_location_in_subdirectory(site):
+    # サブディレクトリの README は、ファイルページと docs/index.html に埋め込まれた形で同じ先を指す
+    commit(
+        site.home / "own" / "alpha",
+        {
+            "docs/README.md": (
+                "[sib](guide.md) [root](/main.py) [up](../README.md) "
+                "[sec](../secrets/token.txt) [q](guide.md?x#a)\n"
+            ),
+        },
+    )
+    public, _ = site.build()
+    out = public / "alpha"
+    for page_path in (out / "docs" / "README.md.html", out / "docs" / "index.html"):
+        found = _anchors(page_path)
+        guide = (out / "docs" / "guide.md.html").resolve()
+        assert _target(page_path, found["sib"]) == guide
+        assert _target(page_path, found["root"]) == (out / "main.py.html").resolve()
+        assert _target(page_path, found["up"]) == (out / "README.md.html").resolve()
+        assert _target(page_path, found["q"]) == guide and found["q"].endswith("#a")
+        # exclude_prefixes で除外したファイルはページが無いので文字になる
+        assert "sec" not in found and "sec" in page_path.read_text()
+    _assert_relative_and_resolvable(public)

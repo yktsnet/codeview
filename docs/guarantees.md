@@ -40,6 +40,7 @@
 | リンクは相対パスで、実在するファイルを指す | `test_links_are_relative_and_resolve` |
 | 拡張の `side()` / `home()` のリンクも相対パスに直る | `test_extension_home_and_side_links_are_relative` |
 | Markdown 本文のリポ内リンクは生成したページを指す（ファイル・ディレクトリ・`/` 始まり・アンカー・ファイルページと埋め込み README の一致） | `test_markdown_links_point_to_generated_pages` |
+| サブディレクトリの `.md` でも、リンクの解決の基準は `.md` の位置で、ファイルページと埋め込み README が同じ先を指す | `test_markdown_links_resolve_from_md_location_in_subdirectory` |
 | ページの無い先へのリンクは文字になる | `test_markdown_links_point_to_generated_pages` |
 | 設定ファイルが無い | `test_missing_config_stops_before_build` |
 | 設定の書式誤り | `test_broken_config_stops_before_build` |
