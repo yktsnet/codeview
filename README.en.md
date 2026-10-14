@@ -49,6 +49,8 @@ codeview build   # generate ./public/ and ./functions/
 codeview serve   # check it at http://localhost:8787
 ```
 
+No server is needed: open `public/index.html` in a browser and it reads as is (links are relative). Links in pages an extension writes in `build()` are the extension's responsibility.
+
 That is enough to read locally. To read over the internet, continue to [Publishing](#publishing) below.
 
 ## Configuration

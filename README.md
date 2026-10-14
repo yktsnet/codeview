@@ -49,6 +49,8 @@ codeview build   # ./public/ と ./functions/ を生成
 codeview serve   # http://localhost:8787 で確認する
 ```
 
+サーバーが無くても、`public/index.html` をブラウザで開けばそのまま読める（リンクは相対パス）。拡張が `build()` で書くページのリンクは拡張側の責任で、相対パスにするかどうかは拡張が決める。
+
 手元で見るだけならここまでで足りる。インターネット越しに読むには、下の [Publishing](#publishing) へ進む。
 
 ## Configuration
