@@ -1,3 +1,36 @@
+## PR記録: fix: Markdown 本文のリポ内リンクを生成したページへ向ける
+issue: 04 (04_markdown-links.md)
+PR: https://github.com/yktsnet/codeview/pull/16
+
+## 変更内容
+- `render.py`: `LinkContext`（slug・`.md` のリポ内パス・ページになるファイル/ディレクトリの集合）と、`<a>` の href を書き換える Treeprocessor を追加。`render_markdown()` に省略可能な `links` を足し、safe でないときだけ使う。Issue 本文（引数なし・safe）の出力は変えない
+- `build.py`: ファイルページの本文と、ディレクトリのページに埋め込む README の両方で `links` を渡す。集合は `entries` / `tree` から作り、除外したファイルは含めない
+- 解決は `.md` の位置を基準にし、`/` 始まりはリポのルート基準、`%` エンコードは戻し、query は落とし、アンカーは残す。ページの無い先（HEAD に無い・除外・リポの外）は `<a>` を外して文字だけ残す
+- 既存テスト `test_links_are_relative_and_resolve` の見本リンクを新しい規則に合わせて `/docs/` に書き換え
+- 確認者の指摘で、サブディレクトリの README を使うテストを追加
+
+## 保証
+- ファイル・ディレクトリへの相対リンク、アンカー、`/` 始まり、ページの無い先 → `test_markdown_links_point_to_generated_pages`
+- 基準は `.md` の位置で、ファイルページと埋め込み README が同じ先を指す → `test_markdown_links_resolve_from_md_location_in_subdirectory`
+
+## 静的確認結果
+- `nix develop -c pytest -q`: 32 passed
+
+## 検証手順
+`codeview build` 後に Finder から `public/index.html` を開き、README の中のリンクから別の `.md` やソースのページへ飛べることを確認する。
+
+## 確認者の判定
+| 項目 | 判定 |
+|---|---|
+| `pytest -q` が通る（32 passed） | 合 |
+| 新しいテストが、ファイルページとディレクトリのページの両方で href を確かめる | 合 |
+| ページの無い先が `<a>` でなくなる | 合 |
+| 既存の `test_links_are_relative_and_resolve` が通る | 合 |
+| 保証 5 項目と台帳の更新 | 合 |
+| 維持する保証（台帳 1・2） | 合 |
+
+---
+
 ## Markdown 本文のリポ内リンクを生成したページへ向ける
 id: 04
 branch-slug: markdown-links
