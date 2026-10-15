@@ -1,3 +1,39 @@
+## PR記録: feat: リポごとに除外する拡張子とパスを足せるようにする
+issue: 05 (05_repo-scan-overrides.md)
+PR: https://github.com/yktsnet/codeview/pull/20
+
+## 変更内容
+- `[scan.repos."<slug>"]` に `skip_exts` と `exclude_prefixes` を書くと、その slug のリポにだけ、全体の `[scan]` の値に足して除外する（`config.py` の `RepoScan` / `Config.repo_scan`、`build.py` の `_page_entries(repo, slug)`）
+- `[scan.repos]` の値が表でない、または `skip_exts` と `exclude_prefixes` 以外のキーがあれば `ConfigError`
+- 走査対象に無い slug は標準エラーに `warning: [scan.repos] no such repo: <slug>` を出し、build は続ける
+- slug はページのパスと同じ値（`build.py` の `slugged`）。リポ名が重なるときだけ `group/name`
+- `_page_entries` は `build_repo()` のほか `github_links()` も呼ぶので、どちらにも slug を渡した（渡さないと除外したファイルが GitHub の URL のリンク先に残る）
+- README.md / README.en.md の設定の表に追記し、画像の多いリポだけ画像を外す例を載せた
+
+## 保証
+- リポ単位の除外はそのリポにだけ全体の値へ足して効く → `tests/test_build.py` `test_repo_scan_adds_to_global_for_that_repo_only`
+- 除外したファイルは Markdown のリンク先にならない → 同上。GitHub の URL のリンク先にもならない → `test_repo_scan_excluded_file_is_not_a_github_link_target`
+- 未知のキーは `error:` で止まり `public/` を作らない → `test_repo_scan_unknown_key_stops_before_build`、`test_repo_scan_must_be_a_table_per_repo`
+- 走査対象に無い slug は警告だけ → `test_repo_scan_unknown_slug_warns_and_continues`
+- `--incremental` の出力は作り直しと同じ → `test_repo_scan_change_rebuilds_incrementally`
+
+## 静的確認結果
+`nix develop -c pytest -q`: 43 passed
+
+## 検証手順
+実際の `codeview.toml` で、06 の後に全体の `skip_exts` から画像の拡張子を外し、`[scan.repos."hi"]` に足す。`codeview build` を流し、hi だけ画像のページが出ないことと、標準エラーに `warning: [scan.repos] no such repo:` が出ないことを見る。
+
+## 確認者の判定
+| 項目 | 判定 |
+|---|---|
+| `nix develop -c pytest -q` が通る（43 passed） | 合 |
+| 新しいテストで、リポ単位の設定を書いたリポだけでそのページが出ず、同じ拡張子・パスでも他のリポでは出る | 合 |
+| 保証節の新規4項目と維持4項目、台帳の更新 | 合 |
+| テストの効き目（実装を10通りに壊して、対応するテストが落ちる） | 合 |
+| 範囲の外に出た変更 | なし |
+
+---
+
 ## リポごとに除外する拡張子とパスを足せるようにする
 id: 05
 branch-slug: repo-scan-overrides
