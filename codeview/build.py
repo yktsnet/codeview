@@ -85,14 +85,19 @@ def _readme_of(children: dict) -> str | None:
     return None
 
 
-def _page_entries(repo: Path) -> list[tuple[str, str]]:
-    """ページにする (パス, blob sha)。HEAD のファイルから除外パスと除外拡張子を落とす。"""
+def _page_entries(repo: Path, slug: str) -> list[tuple[str, str]]:
+    """ページにする (パス, blob sha)。HEAD のファイルから除外パスと除外拡張子を落とす。
+
+    除外は全体の `[scan]` に、そのリポの `[scan.repos."<slug>"]` の分を足したもの。
+    """
     cfg = config.load()
+    extra = cfg.repo_scan.get(slug, config.RepoScan())
+    prefixes = cfg.exclude_prefixes + extra.exclude_prefixes
+    exts = cfg.skip_exts + extra.skip_exts
     return [
         (path, sha)
         for path, sha in tracked_blobs(repo)
-        if not path.startswith(cfg.exclude_prefixes)
-        and not path.lower().endswith(cfg.skip_exts)
+        if not path.startswith(prefixes) and not path.lower().endswith(exts)
     ]
 
 
@@ -116,7 +121,7 @@ def github_links(repos: list[plugins.Repo], board) -> GitHubLinks:
             key = owner_repo(path).lower()
         except RuntimeError:
             continue
-        files = frozenset(p for p, _ in _page_entries(path))
+        files = frozenset(p for p, _ in _page_entries(path, slug))
         dirs = {""}
         for f in files:
             parts = f.split("/")[:-1]
@@ -143,7 +148,7 @@ def build_repo(
     github: GitHubLinks | None = None,
     account: str | None = None,
 ) -> int:
-    entries = _page_entries(repo)
+    entries = _page_entries(repo, slug)
     blobs = read_blobs(repo, [sha for _, sha in entries])
     name = slug.split("/")[-1]
     home = str(Path.home())
@@ -373,6 +378,11 @@ def main(argv: list[str] | None = None) -> None:
     # ファイルページに Issue へのリンクを差し込むので、ページを書く前に全リポ分を集める
     board = collect(ctx)
     github = github_links(slugged, board)
+    # 外したリポの設定が残っていても build は止めない
+    known = {slug for _, _, slug in slugged}
+    for slug in config.load().repo_scan:
+        if slug not in known:
+            print(f"warning: [scan.repos] no such repo: {slug}", file=sys.stderr)
     for account, failed in board.failed.items():
         for name in failed:
             print(f"  issues/{account}: fetch failed: {name}", file=sys.stderr)

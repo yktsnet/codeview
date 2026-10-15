@@ -41,12 +41,22 @@ class Account:
 
 
 @dataclass(frozen=True)
+class RepoScan:
+    """`[scan.repos."<slug>"]` の追加分。全体の `[scan]` の値に足して効く。"""
+
+    skip_exts: tuple[str, ...] = ()
+    exclude_prefixes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class Config:
     source: Path
     roots: tuple[Root, ...]
     skip_dirs: frozenset[str] = frozenset()
     exclude_prefixes: tuple[str, ...] = ()
     skip_exts: tuple[str, ...] = ()
+    # slug -> そのリポだけに足す除外
+    repo_scan: dict[str, RepoScan] = field(default_factory=dict)
     accounts: tuple[Account, ...] = ()
     publish_remote: str = "origin"
     publish_branch: str = "deploy"
@@ -169,6 +179,22 @@ def plugin_key(module: str) -> str:
     return module.rsplit(".", 1)[-1]
 
 
+def _repo_scan(scan: dict, src: Path) -> dict[str, RepoScan]:
+    where = f"{src}: [scan.repos]"
+    table = _table(scan, "repos", f"{src}: [scan]")
+    found = {}
+    for slug, row in table.items():
+        here = f'{src}: [scan.repos."{slug}"]'
+        if not isinstance(row, dict):
+            raise ConfigError(f"{where}: \"{slug}\" must be a table")
+        _unknown(row, ("skip_exts", "exclude_prefixes"), here)
+        found[slug] = RepoScan(
+            skip_exts=tuple(e.lower() for e in _strs(row, "skip_exts", here)),
+            exclude_prefixes=_strs(row, "exclude_prefixes", here),
+        )
+    return found
+
+
 def _plugins(data: dict, src: Path) -> tuple[tuple[str, ...], dict]:
     where = f"{src}: [plugins]"
     table = _table(data, "plugins", str(src))
@@ -204,7 +230,7 @@ def load() -> Config:
         raise ConfigError(f"invalid TOML in {src}: {e}") from e
 
     scan = _table(data, "scan", str(src))
-    _unknown(scan, ("skip_dirs", "exclude_prefixes", "skip_exts"), f"{src}: [scan]")
+    _unknown(scan, ("skip_dirs", "exclude_prefixes", "skip_exts", "repos"), f"{src}: [scan]")
     publish = _table(data, "publish", str(src))
     _unknown(publish, ("remote", "branch"), f"{src}: [publish]")
     plugins, plugin_options = _plugins(data, src)
@@ -216,6 +242,7 @@ def load() -> Config:
         skip_dirs=frozenset(_strs(scan, "skip_dirs", f"{src}: [scan]")),
         exclude_prefixes=_strs(scan, "exclude_prefixes", f"{src}: [scan]"),
         skip_exts=tuple(e.lower() for e in _strs(scan, "skip_exts", f"{src}: [scan]")),
+        repo_scan=_repo_scan(scan, src),
         accounts=accounts,
         publish_remote=_str(publish, "remote", f"{src}: [publish]", required=False) or "origin",
         publish_branch=_str(publish, "branch", f"{src}: [publish]", required=False) or "deploy",

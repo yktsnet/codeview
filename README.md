@@ -60,10 +60,18 @@ codeview serve   # http://localhost:8787 で確認する
 | 節 | 意味 |
 |---|---|
 | `[[roots]]` | 走査する置き場。`group` と、`path`（そのディレクトリが1つのリポ）か `children`（直下の git リポすべて）のどちらか一方。並び順がトップの左メニューの順になる |
-| `[scan]` | `skip_dirs`（走査しないディレクトリ名）・`exclude_prefixes`（出力しないパスの接頭辞）・`skip_exts`（出力しない拡張子） |
+| `[scan]` | `skip_dirs`（走査しないディレクトリ名）・`exclude_prefixes`（出力しないパスの接頭辞）・`skip_exts`（出力しない拡張子）。リポごとに足すときは `[scan.repos."<slug>"]` に `skip_exts` と `exclude_prefixes` を書く（全体の値に足される。slug はページのパスと同じ） |
 | `[[accounts]]` | Issue をまとめる単位で、1〜2個。`name`・`hosts`（`origin` の remote のホスト）・`groups`（remote が無いときの決め手）・`issues`（既定の `github` か、Issue を返す拡張のモジュール名）・`gh_config_dir`（`issues = "github"` のときに使う gh の config dir） |
 | `[publish]` | 配信先の `remote`（既定 `origin`）と `branch`（既定 `deploy`） |
 | `[plugins]` | 読み込む拡張（`modules`）。拡張ごとの設定は `[plugins.<モジュール名の末尾>]` に置く |
+
+画像の多いリポだけ画像を外す例。他のリポは全体の `[scan]` のままになる。
+
+```toml
+[scan.repos."hi"]
+skip_exts = [".png", ".jpg"]
+exclude_prefixes = ["assets/"]
+```
 
 2つ目のアカウントは `[[accounts]]` をもう1つ足す。仕事用の GitHub に SSH の Host 別名（`github-work`）で繋いでいる例。
 

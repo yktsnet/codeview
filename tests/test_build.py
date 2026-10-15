@@ -39,6 +39,95 @@ def test_scans_single_repo_path(site):
     assert not (public / "gamma").exists()
 
 
+REPO_SCAN = """
+[scan.repos."alpha"]
+skip_exts = [".PY"]
+exclude_prefixes = ["docs/"]
+"""
+
+
+def _repo_scan_site(site, extra=REPO_SCAN):
+    # alpha と同じ拡張子・パスのファイルを beta にも置く
+    commit(
+        site.home / "own" / "alpha",
+        {"README.md": "[g](docs/guide.md) [m](main.py) [l](logo.png)\n"},
+    )
+    commit(
+        site.home / "work" / "beta",
+        {
+            "main.py": "m = 1\n",
+            "docs/guide.md": "# guide\n",
+            "logo.png": "not really a png\n",
+            "README.md": "[g](docs/guide.md) [m](main.py) [l](logo.png)\n",
+        },
+    )
+    site.write_config(site.config.read_text() + extra)
+
+
+def test_repo_scan_adds_to_global_for_that_repo_only(site):
+    _repo_scan_site(site)
+    public, _ = site.build()
+    alpha, beta = public / "alpha", public / "beta"
+    # リポ単位の除外は、そのリポだけに効く（拡張子は大小を無視する）
+    assert not (alpha / "main.py.html").exists()
+    assert not (alpha / "docs").exists()
+    assert (beta / "main.py.html").is_file()
+    assert (beta / "docs" / "guide.md.html").is_file()
+    # 全体の除外は足したあとも効く
+    assert not (alpha / "logo.png.html").exists()
+    assert not (beta / "logo.png.html").exists()
+    assert (alpha / "README.md.html").is_file()
+    # 除外したファイルは Markdown のリンク先にならない（文字だけ残る）
+    for page in (alpha / "README.md.html", alpha / "index.html"):
+        found = _anchors(page)
+        assert "g" not in found and "m" not in found and "l" not in found
+    found = _anchors(beta / "README.md.html")
+    assert "g" in found and "m" in found and "l" not in found
+    _assert_relative_and_resolvable(public)
+
+
+def test_repo_scan_excluded_file_is_not_a_github_link_target(site):
+    _repo_scan_site(site)
+    commit(
+        site.home / "own" / "alpha",
+        {"README.md": "[m](https://github.com/me/alpha/blob/main/main.py)\n"},
+    )
+    public, _ = site.build()
+    found = _anchors(public / "alpha" / "README.md.html")
+    assert found["m"].startswith("https://github.com/")
+
+
+def test_repo_scan_unknown_key_stops_before_build(site):
+    _repo_scan_site(site, '\n[scan.repos."alpha"]\nskip_dirs = ["x"]\n')
+    public, proc = site.build(check=False)
+    assert proc.returncode != 0
+    assert "error:" in proc.stderr and "skip_dirs" in proc.stderr
+    assert not public.exists()
+
+
+def test_repo_scan_must_be_a_table_per_repo(site):
+    site.write_config(site.config.read_text() + '\n[scan.repos]\nalpha = ".png"\n')
+    public, proc = site.build(check=False)
+    assert proc.returncode != 0 and "error:" in proc.stderr
+    assert not public.exists()
+
+
+def test_repo_scan_unknown_slug_warns_and_continues(site):
+    site.write_config(site.config.read_text() + '\n[scan.repos."gone"]\nskip_exts = [".py"]\n')
+    public, proc = site.build()
+    assert "no such repo: gone" in proc.stderr
+    assert (public / "alpha" / "main.py.html").is_file()
+
+
+def test_repo_scan_change_rebuilds_incrementally(site, tmp_path):
+    _repo_scan_site(site, "")
+    _build_incremental(site)
+    site.write_config(site.config.read_text() + REPO_SCAN)
+    public, err = _build_incremental(site)
+    assert not (public / "alpha" / "main.py.html").exists()
+    assert _tree(public) == _tree(_full_build_elsewhere(site, tmp_path / "1"))
+
+
 def test_readme_on_directory_page(site):
     public, _ = site.build()
     page = (public / "alpha" / "index.html").read_text()
