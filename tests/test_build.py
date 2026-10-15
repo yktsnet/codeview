@@ -431,7 +431,7 @@ GIF = bytes.fromhex("47494638396101000100800000000000ffffff21f90401000000002c000
 IMAGES_README = """# alpha
 
 ![dot](img/dot.gif) ![root](/img/dot.gif) ![space](img/my%20pic.gif) ![svg](icon.svg)
-![skipped](logo.png) ![hidden](secrets/pic.gif) ![big](big.webp) ![missing](nothing.gif)
+![edge](edge.webp) ![skipped](logo.png) ![hidden](secrets/pic.gif) ![big](big.webp) ![missing](nothing.gif)
 ![ext](https://example.com/x.png) ![out](../../x.gif)
 
 <img src="img/dot.gif" alt="rawdot" width="10">
@@ -482,6 +482,7 @@ def test_images_are_copied_and_shown(site):
         "img/my pic.gif": GIF + b"\0",
         "secrets/pic.gif": GIF,
         "big.webp": b"\0" * (5 * 1024 * 1024 + 1),
+        "edge.webp": b"\0" * (5 * 1024 * 1024),
         "icon.svg": b'<svg xmlns="http://www.w3.org/2000/svg"/>\n',
     }.items():
         (alpha / name).parent.mkdir(parents=True, exist_ok=True)
@@ -492,7 +493,8 @@ def test_images_are_copied_and_shown(site):
     public, _ = site.build()
     out = public / "alpha"
 
-    # 除外していない 5 MiB 以下の画像だけをそのままコピーする
+    # 除外していない 5 MiB 以下（ちょうど 5 MiB を含む）の画像だけをそのままコピーする
+    assert (out / "edge.webp").stat().st_size == 5 * 1024 * 1024
     assert (out / "img" / "dot.gif").read_bytes() == GIF
     assert (out / "img" / "my pic.gif").read_bytes() == GIF + b"\0"
     assert (out / "icon.svg").is_file()
@@ -515,6 +517,7 @@ def test_images_are_copied_and_shown(site):
         found = _imgs(page)
         for alt in ("dot", "root", "rawdot"):
             assert _target(page, found.imgs[alt]) == gif, alt
+        assert _target(page, found.imgs["edge"]) == (out / "edge.webp").resolve()
         assert _target(page, found.imgs["space"]) == (out / "img" / "my pic.gif").resolve()
         assert _target(page, found.imgs["svg"]) == (out / "icon.svg").resolve()
         assert 'width="10"' in page.read_text()
@@ -535,14 +538,24 @@ def test_images_are_copied_and_shown(site):
 
 def test_incremental_build_copies_images_like_full_build(site, tmp_path):
     alpha = site.home / "own" / "alpha"
+    _build_incremental(site)
+    # 画像を足すコミットの後は、alpha を作り直す経路を通る
     (alpha / "dot.gif").write_bytes(GIF)
     git(alpha, "add", "-A")
     git(alpha, "commit", "-qm", "image")
     commit(alpha, {"README.md": "![dot](dot.gif)\n"})
-    _build_incremental(site)
     public, err = _build_incremental(site)
+    assert "alpha: unchanged" not in err and "beta: unchanged" in err
     assert (public / "alpha" / "dot.gif").read_bytes() == GIF
     assert _tree(public) == _tree(_full_build_elsewhere(site, tmp_path / "1"))
+
+    # 画像を消すコミットの後は、コピーした画像も残らない
+    git(alpha, "rm", "-q", "dot.gif")
+    commit(alpha, {"README.md": "![dot](dot.gif)\n"})
+    public, err = _build_incremental(site)
+    assert "alpha: unchanged" not in err
+    assert not (public / "alpha" / "dot.gif").exists()
+    assert _tree(public) == _tree(_full_build_elsewhere(site, tmp_path / "2"))
 
 
 def _build_incremental(site):
