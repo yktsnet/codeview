@@ -6,6 +6,10 @@
 
 - `children` のルートでは直下の git リポをすべて走査し、各リポの HEAD にあるファイルをページにする。トップにはリポへのリンクが並ぶ
 - `exclude_prefixes` に前方一致するパス、`skip_exts` の拡張子、未コミットのファイルはページにしない
+- `[scan.repos."<slug>"]` に書いた `skip_exts` と `exclude_prefixes` は、その slug のリポにだけ、全体の `[scan]` の値に足して効く。他のリポのページは変わらない
+- リポ単位で除外したファイルも、全体で除外したファイルと同じく、Markdown のリンク先にならない（リンクにせず文字だけ残す）
+- `[scan.repos."<slug>"]` に `skip_exts` と `exclude_prefixes` 以外のキーがあれば、`error:` を出して非0で終わり、`public/` を作らない
+- 走査対象に無い slug を `[scan.repos]` に書いても build は止まらず、その slug を標準エラーに出す
 - `skip_dirs` に挙げたディレクトリと、`.git` がファイルであるディレクトリ（worktree）は走査しない
 - `path` のルートでは、そのリポ1つだけを走査する
 - README を持つディレクトリのページには、一覧の下に README を描く。README の無いディレクトリは案内文を出す
@@ -35,6 +39,11 @@
 |---|---|
 | `children` の走査とトップのリンク | `test_scans_children_and_skips` |
 | 除外パス・拡張子・未コミットを出さない | `test_scans_children_and_skips` |
+| リポ単位の除外は、そのリポにだけ全体の値へ足して効く（除外したファイルはリンク先にならない） | `test_repo_scan_adds_to_global_for_that_repo_only` |
+| リポ単位で除外したファイルは GitHub の URL のリンク先にならない | `test_repo_scan_excluded_file_is_not_a_github_link_target` |
+| リポ単位の設定の未知のキー・表でない値 | `test_repo_scan_unknown_key_stops_before_build`、`test_repo_scan_must_be_a_table_per_repo` |
+| 走査対象に無い slug は警告だけ | `test_repo_scan_unknown_slug_warns_and_continues` |
+| リポ単位の設定を変えると `--incremental` も作り直す | `test_repo_scan_change_rebuilds_incrementally` |
 | `skip_dirs` と worktree を走査しない | `test_scans_children_and_skips` |
 | `path` は1リポだけ | `test_scans_single_repo_path` |
 | ディレクトリページの README | `test_readme_on_directory_page` |
