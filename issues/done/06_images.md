@@ -1,3 +1,39 @@
+## PR記録: feat: 画像をファイルのページと Markdown の本文に表示する
+issue: 06 (06_images.md)
+PR: https://github.com/yktsnet/codeview/pull/22
+
+## 変更内容
+- 対象の拡張子（`.png` `.jpg` `.jpeg` `.gif` `.webp` `.ico` `.svg`）の画像のうち、除外していない 5 MiB 以下のものを `public/<slug>/<パス>` にコピーする
+- 画像ファイルのページは `<img>` で表示する。5 MiB 超は `Too large to display`。`.svg` のページは従来どおりコードとして描く
+- Markdown の `![]()` は Treeprocessor で、生の HTML の `<img>` は htmlStash を書き換える Postprocessor（raw_html より先）で、コピーした画像への相対パスに解決する。解決の基準はリンクと同じ（`.md` の位置、`/` 始まりはリポのルート）
+- 指す先の画像が無いもの・リポ外の URL は `[alt]` の文字にする（Issue の本文の safe な描画は変えない）
+- 画像ファイルのページの `<img>` に max-width と枠・背景を当てる
+- src は `urllib.parse.quote` でパーセントエンコードして書く（空白や `#` を含むファイル名向け。保証節の外の追加）
+
+## 保証
+- 画像のコピー（ちょうど 5 MiB を含む）・画像ファイルのページ・本文の src の解決・指す先の無い画像の文字化 → `tests/test_build.py::test_images_are_copied_and_shown`
+- `--incremental` の出力が全体の作り直しと同じ（画像の追加・削除の後の作り直しを含む）→ `tests/test_build.py::test_incremental_build_copies_images_like_full_build`
+- 維持する保証（相対パスで実在、除外した画像はコピーしない、Issue の本文の画像は出さない）→ `_assert_relative_and_resolvable` と既存テスト
+
+## 静的確認結果
+- `nix develop -c pytest -q`: 45 passed
+- 見本の site を build し、ヘッドレスのブラウザで README の画像・画像ファイルのページを PC 幅とスマホ幅で確認。横スクロールなし、透過画像は枠と背景で見分けられる
+
+## 検証手順
+実際の `codeview.toml` で全体の `skip_exts` から画像の拡張子を外し、hi にだけ 05 の設定で足して build し、README の画像と画像ファイルのページを PC とスマホで見る。生成物のファイル数と容量の増え方を見る。
+
+## 確認者の判定
+| # | 項目 | 判定 |
+|---|---|---|
+| 1 | `nix develop -c pytest -q` が通る | 合 |
+| 2 | 画像ファイルのページに `<img>` が出る | 合 |
+| 3 | `![]()` と生の `<img>` の src が、実在する画像への相対パスになる | 合 |
+| 4 | ページの無い画像・リポ外の画像が `[alt]` の文字になる | 合 |
+
+最初の判定の「否」2 件（ちょうど 5 MiB の境界、`--incremental` の作り直しの経路）は追加コミットで直し、再確認で合。
+
+---
+
 ## 画像をファイルのページと Markdown の本文に表示する
 id: 06
 branch-slug: images
