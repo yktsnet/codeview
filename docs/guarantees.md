@@ -32,6 +32,10 @@
 - 本文にある走査対象のリポの GitHub の URL は、生成したページに対応すれば、そのページへのリンクになる。リポのトップはリポのページ、`blob` / `tree` は、ref が HEAD のブランチ名と一致すれば、そのファイルやディレクトリのページになる。`#` 以降のアンカーは残す
 - GitHub の Issue の URL は、取り込んだ Issue で、読んでいる文書と同じアカウントのものだけ、その Issue のページへのリンクになる
 - 対応するページが無い GitHub の URL（別の ref・HEAD に無いパス・取り込んでいない Issue・別のアカウントの Issue・Pull Request など）は、外部 URL のまま残す
+- 対象の拡張子（`.png` `.jpg` `.jpeg` `.gif` `.webp` `.ico` `.svg`）の画像のうち、除外していない 5 MiB 以下のものは、`public/<slug>/<リポ内パス>` にそのままコピーする。除外した画像と 5 MiB を超える画像はコピーしない
+- 画像ファイルのページは、その画像を `<img>` で表示する（5 MiB を超えるときは `Too large to display`）。`.svg` のページはコードとして描く
+- リポのファイルを描いた Markdown の本文で、リポ内のコピーした画像を指す `![]()` と生の HTML の `<img>` の src は、その画像への相対パスになる。解決の基準と `/` 始まりの扱いはリンクと同じで、ファイルページでも埋め込み README でも同じ先を指す
+- 指す先の画像が無い（HEAD に無い・除外した・5 MiB 超・リポの外）`![]()` と `<img>`、およびリポ外の URL を指すものは、画像にせず `[alt]` の文字にする
 - `--incremental` を付けると、前回の `--incremental` から入力が変わったリポだけを作り直す。出力は、付けずに作り直したものと同じになる。入力には、リポの HEAD・置き場所・アカウント・そのリポのファイルを対象に挙げた Issue・本体と設定のほか、Markdown が GitHub の URL を含むリポでは他のリポの中身と Issue の一覧も含む
 - `--incremental` で、どのリポも Issue も変わっていなければ、何も書かずに終わる。記録は `public/` の外に置く
 
@@ -59,6 +63,8 @@
 | GitHub の URL は、対応するページがあればそこへ向き、無ければ外部 URL のまま残る | `test_github_urls_point_to_generated_pages` |
 | `--incremental` の出力は全体の作り直しと同じ（他のリポの変化・消えたリポを含む） | `test_incremental_build_matches_full_build` |
 | `--incremental` は変化が無ければ何も書かない | `test_incremental_build_skips_when_nothing_changed` |
+| 画像はコピーされ、画像ファイルのページと Markdown 本文（`![]()` と生の `<img>`）に表示される。指す先の無い画像・リポ外の画像は文字になる | `test_images_are_copied_and_shown` |
+| `--incremental` でも画像は全体の作り直しと同じ出力になる | `test_incremental_build_copies_images_like_full_build` |
 | 設定ファイルが無い | `test_missing_config_stops_before_build` |
 | 設定の書式誤り | `test_broken_config_stops_before_build` |
 | 読み込めない拡張 | `test_unknown_plugin_stops_before_build` |

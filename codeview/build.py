@@ -15,6 +15,7 @@ import shutil
 import sys
 from importlib import resources
 from pathlib import Path
+from urllib.parse import quote
 
 from codeview import config, plugins
 from codeview.issues import collect
@@ -31,10 +32,12 @@ from codeview.layout import (
 )
 from codeview.render import (
     MAX_BYTES,
+    MAX_IMAGE_BYTES,
     GitHubLinks,
     GitHubRepo,
     LinkContext,
     human,
+    is_image,
     is_text,
     line_count,
     render_code_lang,
@@ -188,8 +191,15 @@ def build_repo(
     file_set = frozenset(path for path, _ in entries)
     dir_set = frozenset(tree)
 
+    # コピーする画像。Markdown の `![]()` / `<img>` の向け先になるのはこれだけ
+    images = frozenset(
+        path
+        for path, sha in entries
+        if is_image(path) and sha in blobs and len(blobs[sha]) <= MAX_IMAGE_BYTES
+    )
+
     def links_for(md_path: str) -> LinkContext:
-        return LinkContext(slug, md_path, file_set, dir_set)
+        return LinkContext(slug, md_path, file_set, dir_set, images)
 
     def file_href(parent_dir: str, child: str) -> str:
         return f"/{slug}/" + (f"{parent_dir}/" if parent_dir else "") + f"{child}.html"
@@ -204,7 +214,20 @@ def build_repo(
         copy_body = False
         width = "w-md"
         meta = [human(len(data))]
-        if len(data) > MAX_BYTES:
+        if path in images:
+            target = out_root / slug / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        is_svg = fname.lower().endswith(".svg")
+        if is_image(path) and not is_svg:
+            if path in images:
+                body = (
+                    f'<img class="imgfile" src="/{slug}/{quote(path)}" '
+                    f'alt="{html.escape(fname, quote=True)}">'
+                )
+            else:
+                body = f'<p class="empty">Too large to display ({human(len(data))})</p>'
+        elif len(data) > MAX_BYTES:
             body = f'<p class="empty">Too large to display ({human(len(data))})</p>'
         elif not is_text(data):
             body = f'<p class="empty">Binary ({human(len(data))})</p>'

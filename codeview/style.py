@@ -323,6 +323,14 @@ body:not(.lnjs) .hl pre > span[id^="ln-"]:target,
 /* mermaid は図の箱の中に一時の div を作って文字を測る。狭い画面ではその幅で測って
    軸の題が目盛りに重なるので、描いた後の大きさ（既定の 700px）で測らせる */
 .mermaid > div[id^="d"] { width: 700px; }
+.imgfile {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
 .markdown-body img {
   max-width: 100%;
   height: auto;
