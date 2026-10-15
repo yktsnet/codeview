@@ -59,7 +59,7 @@ The config is TOML, read from the `CODEVIEW_CONFIG` environment variable, or `co
 
 | Section | Meaning |
 |---|---|
-| `[[roots]]` | Where to scan. A `group`, plus exactly one of `path` (that directory is one repository) or `children` (every git repository directly under it). The order is the order of the left menu on the top page |
+| `[[roots]]` | Where to scan. A `group`, plus exactly one of `path` (that directory is one repository) or `children` (every git repository directly under it). The order is the order of the groups in the left menu on the top page. Within a group, repositories with more files come first |
 | `[scan]` | `skip_dirs` (directory names not to scan), `exclude_prefixes` (path prefixes not to output), `skip_exts` (extensions not to output). To add exclusions for one repository, put `skip_exts` and `exclude_prefixes` in `[scan.repos."<slug>"]` (added to the global values; the slug is the repository's path in the output) |
 | `[[accounts]]` | The unit issues are grouped by; 1 or 2 of them. `name`, `hosts` (hosts of the `origin` remote), `groups` (the fallback when there is no remote), `issues` (the default `github`, or the module name of an extension that returns issues), `gh_config_dir` (the gh config dir used when `issues = "github"`) |
 | `[publish]` | The `remote` (default `origin`) and `branch` (default `deploy`) to publish to |

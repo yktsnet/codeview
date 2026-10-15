@@ -282,7 +282,7 @@ def index_side(counts, board, extra: str = "") -> str:
             f'<a class="item" href="/{slug}/">'
             f'<span class="t">{html.escape(name)}</span>'
             f'<span class="m">{n:,}</span></a>'
-            for slug, name, n in items
+            for slug, name, n in sorted(items, key=lambda it: (-it[2], it[1].lower()))
         )
         blocks.append(f'<h2 class="dhead">{html.escape(group)}</h2>{rows}')
     return side_head("") + '<div id="list">' + "".join(blocks) + "</div>"
