@@ -6,11 +6,12 @@ import html
 import posixpath
 import re
 from dataclasses import dataclass
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 import markdown
 from markdown.extensions import Extension
 from markdown.extensions.toc import slugify_unicode
+from markdown.postprocessors import Postprocessor
 from markdown.treeprocessors import Treeprocessor
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
@@ -21,11 +22,19 @@ MAX_BYTES = 512 * 1024
 HIGHLIGHT_MAX_BYTES = 96 * 1024
 CODE_STYLE = "github-dark"
 
+# 生成物にコピーして表示する画像。大きすぎるものはコピーしない
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".svg")
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
 MERMAID_BLOCK = re.compile(r"```mermaid\s*\n(.*?)```", re.DOTALL)
 
 
 def is_text(data: bytes) -> bool:
     return b"\0" not in data
+
+
+def is_image(path: str) -> bool:
+    return path.lower().endswith(IMAGE_EXTS)
 
 
 def human(n: int) -> str:
@@ -113,14 +122,11 @@ class LinkContext:
     md_path: str
     files: frozenset[str]
     dirs: frozenset[str]
+    # 生成物にコピーした画像のリポ内パス
+    images: frozenset[str] = frozenset()
 
-    def resolve(self, href: str) -> str | None:
-        """リポ内のページを指すリンクならサイト内の絶対パスを返す。外部・アンカーは href のまま、
-        ページの無い先は None。"""
-        parts = urlsplit(href.strip())
-        if parts.scheme or parts.netloc or not parts.path:
-            return href
-        raw = unquote(parts.path)
+    def _target(self, raw: str) -> str | None:
+        """`.md` の位置（`/` 始まりはリポのルート）を基準にしたリポ内パス。リポの外は None。"""
         if raw.startswith("/"):
             target = posixpath.normpath(raw.lstrip("/") or ".")
         else:
@@ -130,12 +136,34 @@ class LinkContext:
             target = ""
         if target == ".." or target.startswith("../"):
             return None
+        return target
+
+    def resolve(self, href: str) -> str | None:
+        """リポ内のページを指すリンクならサイト内の絶対パスを返す。外部・アンカーは href のまま、
+        ページの無い先は None。"""
+        parts = urlsplit(href.strip())
+        if parts.scheme or parts.netloc or not parts.path:
+            return href
+        raw = unquote(parts.path)
+        target = self._target(raw)
+        if target is None:
+            return None
         frag = f"#{parts.fragment}" if parts.fragment else ""
         if not raw.endswith("/") and target in self.files:
             return f"/{self.slug}/{target}.html{frag}"
         if target in self.dirs:
             return f"/{self.slug}/" + (f"{target}/" if target else "") + frag
         return None
+
+    def resolve_image(self, src: str) -> str | None:
+        """コピーした画像を指す src ならサイト内の絶対パスを返す。無ければ（リポ外の URL を含む）None。"""
+        parts = urlsplit(src.strip())
+        if parts.scheme or parts.netloc or not parts.path:
+            return None
+        target = self._target(unquote(parts.path))
+        if target is None or target not in self.images:
+            return None
+        return f"/{self.slug}/{quote(target)}"
 
 
 @dataclass(frozen=True)
@@ -235,6 +263,73 @@ class _ResolveLinks(Treeprocessor):
                 el.tag = "span"
             else:
                 el.set("href", new)
+
+
+def _noimg(alt: str | None) -> str:
+    return f'<span class="noimg">[{html.escape(alt or "image")}]</span>'
+
+
+class _ResolveImages(Treeprocessor):
+    """`![]()` をコピーした画像へ向ける。向け先の無い画像は `[alt]` の文字にする。"""
+
+    def __init__(self, md, links: LinkContext):
+        super().__init__(md)
+        self.links = links
+
+    def run(self, root):
+        for el in root.iter("img"):
+            new = self.links.resolve_image(el.get("src", ""))
+            if new is None:
+                alt = el.get("alt") or "image"
+                el.attrib.clear()
+                el.tag = "span"
+                el.set("class", "noimg")
+                el.text = f"[{alt}]"
+            else:
+                el.set("src", new)
+
+
+_IMG_TAG = re.compile(r"<img\b[^>]*>", re.I)
+_ATTR = re.compile(r"""([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?""")
+
+
+class _ResolveRawImages(Postprocessor):
+    """生の HTML の `<img>` を `![]()` と同じ規則でコピーした画像へ向ける。
+
+    生の HTML は htmlStash に退避されていて Treeprocessor から見えない。描き終えた HTML 全体を
+    書き換えると `![]()` の解決済みの src をもう一度解決してしまうので、退避した塊だけを書き換える。
+    """
+
+    def __init__(self, md, links: LinkContext):
+        super().__init__(md)
+        self.links = links
+        # toc が見出しを描くときにも後処理が走る。書き換えた塊をもう一度解決しない
+        self._done: set[int] = set()
+
+    def run(self, text):
+        blocks = self.md.htmlStash.rawHtmlBlocks
+        for i, block in enumerate(blocks):
+            if i not in self._done:
+                self._done.add(i)
+                blocks[i] = _IMG_TAG.sub(self._img, block)
+        return text
+
+    def _img(self, m: re.Match) -> str:
+        attrs = []
+        src = alt = None
+        for name, dq, sq, bare in _ATTR.findall(m.group(0)[len("<img") : -1].rstrip("/")):
+            value = html.unescape(next((v for v in (dq, sq, bare) if v), ""))
+            if name.lower() == "src":
+                src = value
+            else:
+                if name.lower() == "alt":
+                    alt = value
+                attrs.append((name, value))
+        new = self.links.resolve_image(src) if src is not None else None
+        if new is None:
+            return _noimg(alt)
+        rest = "".join(f' {n}="{html.escape(v, quote=True)}"' for n, v in attrs)
+        return f'<img src="{html.escape(new, quote=True)}"{rest}>'
 
 
 class _NoRawHtml(Extension):
@@ -351,6 +446,10 @@ def render_markdown(
         md.treeprocessors.register(
             _ResolveLinks(md, resolve, github, account), "resolve_links", 6
         )
+    if resolve is not None:
+        md.treeprocessors.register(_ResolveImages(md, resolve), "resolve_images", 6)
+        # raw_html（30）が退避した塊を戻す前に書き換える
+        md.postprocessors.register(_ResolveRawImages(md, resolve), "resolve_raw_images", 35)
     html_content = md.convert(preprocessed)
 
     for idx, code in enumerate(mermaid_placeholders):

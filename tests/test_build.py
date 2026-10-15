@@ -8,8 +8,9 @@ import subprocess
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import unquote
 
-from conftest import commit
+from conftest import commit, git
 
 
 def test_scans_children_and_skips(site):
@@ -252,7 +253,7 @@ def _assert_relative_and_resolvable(public):
             if link.startswith(_EXTERNAL):
                 continue
             assert not link.startswith("/"), f"{page}: {link}"
-            target = (page.parent / link.split("#")[0]).resolve()
+            target = (page.parent / unquote(link.split("#")[0])).resolve()
             assert target.is_file(), f"{page}: {link}"
             assert public.resolve() in target.parents
             checked += 1
@@ -316,7 +317,7 @@ def _anchors(page_path):
 
 def _target(page_path, href):
     """href をページの位置から解決した先（`#` 以降は除く）。"""
-    return (page_path.parent / href.split("#")[0]).resolve()
+    return (page_path.parent / unquote(href.split("#")[0])).resolve()
 
 
 README_LINKS = """# alpha
@@ -422,6 +423,139 @@ def test_github_urls_point_to_generated_pages(site):
         for name in ("sha", "gone", "skipped", "closed", "xacct", "pull", "unknown"):
             assert found[name].startswith("https://github.com/"), name
     _assert_relative_and_resolvable(public)
+
+
+# 1x1 の GIF
+GIF = bytes.fromhex("47494638396101000100800000000000ffffff21f90401000000002c00000000010001000002024401003b")
+
+IMAGES_README = """# alpha
+
+![dot](img/dot.gif) ![root](/img/dot.gif) ![space](img/my%20pic.gif) ![svg](icon.svg)
+![edge](edge.webp) ![skipped](logo.png) ![hidden](secrets/pic.gif) ![big](big.webp) ![missing](nothing.gif)
+![ext](https://example.com/x.png) ![out](../../x.gif)
+
+<img src="img/dot.gif" alt="rawdot" width="10">
+<img src="logo.png" alt="rawskipped"> <img src="https://example.com/y.png" alt="rawext">
+"""
+
+IMAGES_DOCS_README = """# docs
+
+![up](../img/dot.gif) ![none](dot.gif)
+
+<img src="../img/dot.gif" alt="rawup"> <img src="/img/dot.gif" alt="rawroot"> <img alt="nosrc">
+"""
+
+
+class _Imgs(HTMLParser):
+    """本文の `<img>`（alt, src）と、画像の代わりに出した文字を集める。"""
+
+    def __init__(self):
+        super().__init__()
+        self.imgs: dict[str, str] = {}
+        self.noimg: list[str] = []
+        self._noimg = False
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "img":
+            self.imgs[a.get("alt", "")] = a.get("src", "")
+        self._noimg = tag == "span" and a.get("class") == "noimg"
+
+    def handle_endtag(self, tag):
+        self._noimg = False
+
+    def handle_data(self, data):
+        if self._noimg:
+            self.noimg.append(data)
+
+
+def _imgs(page_path):
+    parser = _Imgs()
+    parser.feed(page_path.read_text())
+    return parser
+
+
+def test_images_are_copied_and_shown(site):
+    alpha = site.home / "own" / "alpha"
+    for name, data in {
+        "img/dot.gif": GIF,
+        "img/my pic.gif": GIF + b"\0",
+        "secrets/pic.gif": GIF,
+        "big.webp": b"\0" * (5 * 1024 * 1024 + 1),
+        "edge.webp": b"\0" * (5 * 1024 * 1024),
+        "icon.svg": b'<svg xmlns="http://www.w3.org/2000/svg"/>\n',
+    }.items():
+        (alpha / name).parent.mkdir(parents=True, exist_ok=True)
+        (alpha / name).write_bytes(data)
+    git(alpha, "add", "-A")
+    git(alpha, "commit", "-qm", "images")
+    commit(alpha, {"README.md": IMAGES_README, "docs/README.md": IMAGES_DOCS_README})
+    public, _ = site.build()
+    out = public / "alpha"
+
+    # 除外していない 5 MiB 以下（ちょうど 5 MiB を含む）の画像だけをそのままコピーする
+    assert (out / "edge.webp").stat().st_size == 5 * 1024 * 1024
+    assert (out / "img" / "dot.gif").read_bytes() == GIF
+    assert (out / "img" / "my pic.gif").read_bytes() == GIF + b"\0"
+    assert (out / "icon.svg").is_file()
+    for gone in ("logo.png", "secrets/pic.gif", "big.webp"):
+        assert not (out / gone).exists(), gone
+
+    # 画像ファイルのページは <img> で表示する。大きすぎる画像は出さない。svg はコードのまま
+    page = out / "img" / "dot.gif.html"
+    shown = _imgs(page).imgs
+    assert _target(page, shown["dot.gif"]) == (out / "img" / "dot.gif").resolve()
+    assert 'class="imgfile"' in page.read_text()
+    assert "Too large to display" in (out / "big.webp.html").read_text()
+    assert "<img" not in (out / "big.webp.html").read_text()
+    svg_page = (out / "icon.svg.html").read_text()
+    assert 'class="hl"' in svg_page and "<img" not in svg_page
+
+    # 本文の src はページの位置からの相対パスで、コピーした画像を指す
+    gif = (out / "img" / "dot.gif").resolve()
+    for page in (out / "README.md.html", out / "index.html"):
+        found = _imgs(page)
+        for alt in ("dot", "root", "rawdot"):
+            assert _target(page, found.imgs[alt]) == gif, alt
+        assert _target(page, found.imgs["edge"]) == (out / "edge.webp").resolve()
+        assert _target(page, found.imgs["space"]) == (out / "img" / "my pic.gif").resolve()
+        assert _target(page, found.imgs["svg"]) == (out / "icon.svg").resolve()
+        assert 'width="10"' in page.read_text()
+        # ページの無い画像・リポ外の画像は <img> にせず [alt] の文字にする
+        assert found.noimg == [
+            f"[{n}]"
+            for n in ("skipped", "hidden", "big", "missing", "ext", "out", "rawskipped", "rawext")
+        ]
+        assert "example.com" not in page.read_text()
+    # 基準は .md の位置。ファイルページと埋め込み README で同じ先を指す
+    for page in (out / "docs" / "README.md.html", out / "docs" / "index.html"):
+        found = _imgs(page)
+        for alt in ("up", "rawup", "rawroot"):
+            assert _target(page, found.imgs[alt]) == gif, alt
+        assert found.noimg == ["[none]", "[nosrc]"]
+    _assert_relative_and_resolvable(public)
+
+
+def test_incremental_build_copies_images_like_full_build(site, tmp_path):
+    alpha = site.home / "own" / "alpha"
+    _build_incremental(site)
+    # 画像を足すコミットの後は、alpha を作り直す経路を通る
+    (alpha / "dot.gif").write_bytes(GIF)
+    git(alpha, "add", "-A")
+    git(alpha, "commit", "-qm", "image")
+    commit(alpha, {"README.md": "![dot](dot.gif)\n"})
+    public, err = _build_incremental(site)
+    assert "alpha: unchanged" not in err and "beta: unchanged" in err
+    assert (public / "alpha" / "dot.gif").read_bytes() == GIF
+    assert _tree(public) == _tree(_full_build_elsewhere(site, tmp_path / "1"))
+
+    # 画像を消すコミットの後は、コピーした画像も残らない
+    git(alpha, "rm", "-q", "dot.gif")
+    commit(alpha, {"README.md": "![dot](dot.gif)\n"})
+    public, err = _build_incremental(site)
+    assert "alpha: unchanged" not in err
+    assert not (public / "alpha" / "dot.gif").exists()
+    assert _tree(public) == _tree(_full_build_elsewhere(site, tmp_path / "2"))
 
 
 def _build_incremental(site):
