@@ -1,7 +1,7 @@
 ## 画像をファイルのページと Markdown の本文に表示する
 id: 06
 branch-slug: images
-status: open
+status: close
 depends: 05
 type: feat
 対象: codeview/render.py, codeview/build.py, codeview/style.py, tests/test_build.py, docs/guarantees.md
