@@ -1,7 +1,7 @@
 ## リポごとに除外する拡張子とパスを足せるようにする
 id: 05
 branch-slug: repo-scan-overrides
-status: open
+status: close
 type: feat
 対象: codeview/config.py, codeview/build.py, tests/test_build.py, tests/conftest.py, docs/guarantees.md, README.md, README.en.md
 内容: `[scan]` の `skip_exts` と `exclude_prefixes` は全リポに一律で効く。画像の多いリポ（hi）だけ画像を出さず、他のリポでは出す、という使い分けができない。06 で画像を出力に戻す前に、リポ単位で除外を足す設定を設ける。
