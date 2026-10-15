@@ -263,8 +263,13 @@ body:not(.lnjs) .hl pre > span[id^="ln-"]:target,
   border-radius: 0 var(--r-sm) var(--r-sm) 0;
 }
 .markdown-body blockquote p { margin: 0.4em 0; }
+/* 表は本文の幅を超えると、ページごと横にずれる。表の箱だけを横スクロールさせる。
+   block にすると中身の幅に縮むので、max-content で中身に合わせ、本文の幅で止める */
 .markdown-body table {
-  width: 100%;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
   border-collapse: collapse;
   margin: 1em 0;
   font-size: 0.85rem;
