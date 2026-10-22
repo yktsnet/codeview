@@ -114,23 +114,30 @@
 
 ### 4. `tests/test_publish.py` — codeview publish (変更の検出と出力先)
 
-- 走査対象にも Issue にも動きが無ければ、変更なしと判定する
+- 走査対象に動きが無ければ、変更なしと判定する
 - 走査対象のリポに新しいコミットがあれば、変更ありと判定する
-- GitHub の Issue が更新されれば、変更ありと判定する
+- GitHub の Issue だけが更新されても、変更なしと判定する。指紋を取るときに GitHub へ問い合わせない
 - 走査対象のリポの未コミットの変更は、変更として扱わない
 - `publish --dry-run` は、設定ファイルのあるリポの直下に `public/` と `functions/` を書き、push せずに終わる
 - `publish` は配信ブランチを親を持たない単一コミットとして push し、その木には `public/` と `functions/` だけを載せる
-- `publish --if-changed` は、前回の配信から変更が無ければ push せずに終わる
+- `publish --if-changed` は、前回の配信から変更が無ければ push せずに終わる。Issue だけの更新でも push しない
+- `check_every_hours` を持つアカウントのリポの変化は、前回そのアカウントを見てから間隔が経つまで見ない。定期実行の起動のずれを見込み、間隔より5分短い時間が経っていれば見て、変化があれば配信する。間隔の無いアカウントの変化は、次の実行で配信する
+- 旧形式の状態ファイルは無いものとして扱い、配信する
+- `check_every_hours` は正の整数だけを受け付け、それ以外は設定の誤りとして止める
 
 | 保証（要約） | 対応テスト |
 |---|---|
 | 動きが無ければ変更なし | `test_fingerprint_stable_without_changes` |
 | 新しいコミット | `test_fingerprint_changes_with_head` |
-| Issue の更新 | `test_fingerprint_changes_with_github_issue_update` |
+| Issue の更新は無視 | `test_fingerprint_ignores_github_issue_update` |
 | 未コミットは無視 | `test_fingerprint_ignores_uncommitted` |
 | `--dry-run` の出力先 | `test_publish_writes_into_the_config_repo` |
 | 単一コミットに生成物だけ | `test_publish_pushes_single_commit_of_assets` |
 | `--if-changed` の見送り | `test_publish_if_changed_skips_without_changes` |
+| Issue だけの更新は見送り | `test_publish_if_changed_skips_issue_only_change` |
+| アカウントごとの間隔 | `test_publish_checks_account_at_its_interval` |
+| 旧形式の状態 | `test_publish_if_changed_republishes_over_old_state` |
+| 間隔の値の検証 | `test_check_every_hours_must_be_positive_integer` |
 
 ## Gaps
 

@@ -153,7 +153,10 @@ class Site:
         return out / "public", proc
 
     def fingerprint(self) -> str:
-        code = "from codeview import publish, plugins as p; print(publish._fingerprint(p.context()))"
+        code = (
+            "import json; from codeview import publish, plugins as p; "
+            "print(json.dumps(publish._fingerprint(p.context()), sort_keys=True))"
+        )
         return self.run("-c", code).stdout.strip()
 
 

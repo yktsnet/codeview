@@ -11,23 +11,26 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
 
 from codeview import config, plugins
-from codeview.issues import github_fingerprint
-from codeview.repo import repos
+from codeview.repo import account_of, repos
 
 # Pages が配るのは公開ディレクトリと Functions だけ。生成器は配信ブランチに載せない
 ASSETS = ("public", "functions")
 
 _cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
 STATE = _cache / "codeview" / "publish-state"
+# 定期実行の起動は数秒〜数十秒ずれる。間隔ちょうどの回を見送って一周遅れないよう、その分を差し引く
+SLACK = 300
 
 
 def _site() -> Path:
@@ -70,33 +73,79 @@ def _tree_of_assets() -> str:
         return _git("write-tree", env=env)
 
 
-def _fingerprint(ctx: plugins.Context) -> str:
-    """走査対象リポの HEAD・GitHub の open な Issue・配信するリポの HEAD・本体の版をまとめた指紋。
+def _digest(lines: list[str]) -> str:
+    return hashlib.sha256("\n".join(sorted(lines)).encode()).hexdigest()
 
-    配信するリポの未コミット変更は指紋に出ない。定期実行が拾うのはコミット済みの状態だけで、
+
+def _head(path: Path) -> str:
+    try:
+        return subprocess.run(
+            ["git", "-C", str(path), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except subprocess.CalledProcessError:
+        return "-"
+
+
+def _fingerprint(ctx: plugins.Context) -> dict:
+    """配信の指紋。`accounts` はアカウントごとの走査対象リポの HEAD、`global` はそれ以外
+    （拡張の行・配信するリポの HEAD・本体の版）。
+
+    GitHub の Issue は見ない。Issue だけの動きでは配信せず、次にコミットで配信するときに載る。
+    配信するリポの未コミット変更も指紋に出ない。定期実行が拾うのはコミット済みの状態だけで、
     手元の実験を配信させないため。手動 publish は指紋を見ないので確認はそちらで足りる。
     """
-    found = repos()
-    lines = []
-    for group, path in found:
-        try:
-            head = subprocess.run(
-                ["git", "-C", str(path), "rev-parse", "HEAD"],
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.strip()
-        except subprocess.CalledProcessError:
-            head = "-"
-        lines.append(f"{group}/{path.name}\t{head}")
-    # GitHub の Issue は HEAD に現れないので、GitHub 側の動きを別に見る
-    for account in config.load().accounts:
-        if account.issues == "github":
-            lines.append(f"__{account.name}_issues__\t{github_fingerprint(account, found)}")
-    lines.extend(f"__plugin__\t{line}" for line in plugins.fingerprint(ctx))
-    lines.append(f"__site__\t{_git('rev-parse', 'HEAD')}")
-    lines.append(f"__codeview__\t{_version()}")
-    return hashlib.sha256("\n".join(sorted(lines)).encode()).hexdigest()
+    accounts: dict[str, list[str]] = {}
+    for group, path in repos():
+        # どのアカウントにも属さないリポは "" にまとめ、毎回見る
+        name = account_of(group, path) or ""
+        accounts.setdefault(name, []).append(f"{group}/{path.name}\t{_head(path)}")
+    rest = [f"__plugin__\t{line}" for line in plugins.fingerprint(ctx)]
+    rest.append(f"__site__\t{_git('rev-parse', 'HEAD')}")
+    rest.append(f"__codeview__\t{_version()}")
+    return {
+        "global": _digest(rest),
+        "accounts": {name: _digest(lines) for name, lines in accounts.items()},
+    }
+
+
+def _load_state() -> dict | None:
+    try:
+        state = json.loads(STATE.read_text())
+    except (OSError, ValueError):
+        return None
+    # 指紋だけを書いていた旧形式は、状態なしとして一度配信し直す
+    if not isinstance(state, dict) or not isinstance(state.get("accounts"), dict):
+        return None
+    return state
+
+
+def _due(prev: dict, now: int) -> set[str]:
+    """前回の状態のうち、今回変化を見るアカウント。`check_every_hours` が経っていないものは見ない。"""
+    every = {a.name: a.check_every_hours for a in config.load().accounts}
+    due = set()
+    for name, entry in prev["accounts"].items():
+        hours = every.get(name)
+        if not hours or now - entry.get("checked", 0) >= hours * 3600 - SLACK:
+            due.add(name)
+    return due
+
+
+def _changed(prev: dict, current: dict, due: set[str]) -> bool:
+    if prev.get("global") != current["global"]:
+        return True
+    old = prev["accounts"]
+    # アカウントが増えた・消えたときは、間隔を待たずに配信する
+    if set(old) != set(current["accounts"]):
+        return True
+    return any(old[name].get("digest") != current["accounts"][name] for name in due)
+
+
+def _save(state: dict) -> None:
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(json.dumps(state, sort_keys=True) + "\n")
 
 
 def publish(remote: str, branch: str, dry_run: bool, if_changed: bool) -> int:
@@ -104,9 +153,17 @@ def publish(remote: str, branch: str, dry_run: bool, if_changed: bool) -> int:
     plugins.before_publish(ctx)
     # build 前に採る。生成中に元リポが動いた分は次回に回るほうが、取り落とすより安全
     fingerprint = _fingerprint(ctx)
-    if if_changed and STATE.exists() and STATE.read_text().strip() == fingerprint:
-        print("publish skipped: no change in the scan targets")
-        return 0
+    now = int(time.time())
+    prev = _load_state() if if_changed else None
+    if prev is not None:
+        due = _due(prev, now)
+        if not _changed(prev, fingerprint, due):
+            # 見た時刻だけ進める。digest は前回の配信のものを残し、まだ見ていない変化を取り落とさない
+            for name in due:
+                prev["accounts"][name]["checked"] = now
+            _save(prev)
+            print("publish skipped: no change in the scan targets")
+            return 0
 
     site = _site()
     subprocess.run(
@@ -133,8 +190,15 @@ def publish(remote: str, branch: str, dry_run: bool, if_changed: bool) -> int:
         return 0
 
     _git("push", "--force", remote, f"{commit}:refs/heads/{branch}")
-    STATE.parent.mkdir(parents=True, exist_ok=True)
-    STATE.write_text(fingerprint + "\n")
+    _save(
+        {
+            "global": fingerprint["global"],
+            "accounts": {
+                name: {"digest": digest, "checked": now}
+                for name, digest in fingerprint["accounts"].items()
+            },
+        }
+    )
     print(f"pushed {commit[:8]} → {remote}/{branch}  {message}")
     return 0
 

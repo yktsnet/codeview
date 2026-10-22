@@ -27,4 +27,4 @@ tests/
 3. `issues.collect()` がアカウントごとに Issue を集め、ファイルから Issue への索引を作る
 4. `build.build_repo()` がリポごとに HEAD のファイルをページにする
 5. `layout.build_index()` と `issues_pages()` がトップと Issue のページを書き、拡張の `build()` が自前のページを足す
-6. `publish` は指紋（走査対象の HEAD・GitHub の Issue・設定のリポの HEAD・本体の版）を取り、`public/` と `functions/` を一時 index に載せて配信ブランチへ force push する。Cloudflare Pages がそのブランチを配る
+6. `publish` は指紋（アカウントごとの走査対象の HEAD・設定のリポの HEAD・本体の版・拡張の `fingerprint()`）を取り、`public/` と `functions/` を一時 index に載せて配信ブランチへ force push する。Cloudflare Pages がそのブランチを配る
