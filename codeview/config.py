@@ -38,6 +38,8 @@ class Account:
     # "github" か、Issue を返す拡張のモジュール名
     issues: str = "github"
     gh_config_dir: Path | None = None
+    # `publish --if-changed` がこのアカウントのリポの変化を見る間隔（時間）。None は毎回見る
+    check_every_hours: int | None = None
 
 
 @dataclass(frozen=True)
@@ -149,7 +151,9 @@ def _accounts(data: dict, src: Path, plugins: tuple[str, ...]) -> tuple[Account,
         where = f"{src}: accounts[{i}]"
         if not isinstance(row, dict):
             raise ConfigError(f"{where}: must be a table")
-        _unknown(row, ("name", "hosts", "groups", "issues", "gh_config_dir"), where)
+        _unknown(
+            row, ("name", "hosts", "groups", "issues", "gh_config_dir", "check_every_hours"), where
+        )
         issues = _str(row, "issues", where, required=False) or "github"
         if issues != "github" and issues not in plugins:
             raise ConfigError(
@@ -158,6 +162,10 @@ def _accounts(data: dict, src: Path, plugins: tuple[str, ...]) -> tuple[Account,
         gh_dir = _str(row, "gh_config_dir", where, required=False)
         if gh_dir and issues != "github":
             raise ConfigError(f"{where}: 'gh_config_dir' needs issues = \"github\"")
+        every = row.get("check_every_hours")
+        # bool は int の派生なので、true を 1 と取り違えないよう先に弾く
+        if every is not None and (isinstance(every, bool) or not isinstance(every, int) or every < 1):
+            raise ConfigError(f"{where}: 'check_every_hours' must be a positive integer")
         accounts.append(
             Account(
                 name=_str(row, "name", where),
@@ -165,6 +173,7 @@ def _accounts(data: dict, src: Path, plugins: tuple[str, ...]) -> tuple[Account,
                 groups=_strs(row, "groups", where),
                 issues=issues,
                 gh_config_dir=_expand(gh_dir) if gh_dir else None,
+                check_every_hours=every,
             )
         )
     names = [a.name for a in accounts]

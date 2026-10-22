@@ -61,7 +61,7 @@ The config is TOML, read from the `CODEVIEW_CONFIG` environment variable, or `co
 |---|---|
 | `[[roots]]` | Where to scan. A `group`, plus exactly one of `path` (that directory is one repository) or `children` (every git repository directly under it). The order is the order of the groups in the left menu on the top page. Within a group, repositories with more files come first |
 | `[scan]` | `skip_dirs` (directory names not to scan), `exclude_prefixes` (path prefixes not to output), `skip_exts` (extensions not to output). To add exclusions for one repository, put `skip_exts` and `exclude_prefixes` in `[scan.repos."<slug>"]` (added to the global values; the slug is the repository's path in the output) |
-| `[[accounts]]` | The unit issues are grouped by; 1 or 2 of them. `name`, `hosts` (hosts of the `origin` remote), `groups` (the fallback when there is no remote), `issues` (the default `github`, or the module name of an extension that returns issues), `gh_config_dir` (the gh config dir used when `issues = "github"`) |
+| `[[accounts]]` | The unit issues are grouped by; 1 or 2 of them. `name`, `hosts` (hosts of the `origin` remote), `groups` (the fallback when there is no remote), `issues` (the default `github`, or the module name of an extension that returns issues), `gh_config_dir` (the gh config dir used when `issues = "github"`), `check_every_hours` (how often, in whole hours, `publish --if-changed` looks for changes in this account's repos; checked on every run when omitted) |
 | `[publish]` | The `remote` (default `origin`) and `branch` (default `deploy`) to publish to |
 | `[plugins]` | Extensions to load (`modules`). Per-extension settings go in `[plugins.<last part of the module name>]` |
 
@@ -133,6 +133,8 @@ codeview publish --if-changed  # do nothing if nothing changed since the last ru
 ```
 
 `publish` creates a single parentless commit holding only `public/` and `functions/`, and force-pushes it to the `[publish]` branch. It does not touch the working tree or the index. Cloudflare Pages watches that branch, so the push triggers the deployment. Day-to-day publishing needs no Cloudflare API token.
+
+`--if-changed` looks at commits in the scanned repos and in the publishing repo, the codeview version, and the extensions' `fingerprint()`. A change in GitHub issues alone does not publish; the issues go out with the next publish triggered by any of those changes.
 
 ### One-time: Cloudflare setup
 

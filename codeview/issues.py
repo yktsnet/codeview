@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import subprocess
@@ -19,11 +18,8 @@ from . import config, plugins
 from .repo import account_of, owner_repo
 
 GH_TIMEOUT = 60
-# 指紋は毎時の判定で回るので、本文やコメントまでは取りに行かない
-GH_FIELDS = "number,title,labels,updatedAt,url"
-GH_FIELDS_FULL = "number,title,labels,updatedAt,body,author,createdAt,comments"
+GH_FIELDS = "number,title,labels,updatedAt,body,author,createdAt,comments"
 
-FAILED_MARK = "fetch-failed"
 
 @dataclass
 class Wait:
@@ -95,11 +91,9 @@ def _gh(owner_repo: str, fields: str, config_dir: Path | None) -> list[dict]:
     return json.loads(proc.stdout)
 
 
-def _fetch_github(
-    account: config.Account, repo: Path, fields: str = GH_FIELDS_FULL
-) -> list[dict]:
+def _fetch_github(account: config.Account, repo: Path) -> list[dict]:
     try:
-        return _gh(owner_repo(repo), fields, account.gh_config_dir)
+        return _gh(owner_repo(repo), GH_FIELDS, account.gh_config_dir)
     except (RuntimeError, OSError, subprocess.SubprocessError, ValueError) as e:
         raise RuntimeError(str(e)) from e
 
@@ -215,26 +209,3 @@ def collect(ctx: plugins.Context) -> Board:
         rows.sort(key=lambda i: (-i.updated, i.repo, i.ref))
     return Board(issues, failed, by_file)
 
-
-def github_fingerprint(account: config.Account, found: list[tuple[str, Path]]) -> str:
-    """アカウントの open な Issue の number と updatedAt をまとめた指紋。
-
-    取得に失敗したリポは固定の印にする。前回と同じ扱いにすると、復旧しても
-    変化が見えず、失敗が続く間も無駄に配信し直してしまうため。
-    """
-    targets = [p for g, p in found if account_of(g, p) == account.name]
-
-    def line(repo: Path) -> str:
-        try:
-            rows = _fetch_github(account, repo, GH_FIELDS)
-        except RuntimeError:
-            return f"{repo.name}\t{FAILED_MARK}"
-        body = ",".join(
-            f"{r['number']}:{r.get('updatedAt', '')}"
-            for r in sorted(rows, key=lambda r: r["number"])
-        )
-        return f"{repo.name}\t{body}"
-
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        lines = sorted(pool.map(line, targets))
-    return hashlib.sha256("\n".join(lines).encode()).hexdigest()

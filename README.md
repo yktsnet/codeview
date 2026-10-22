@@ -61,7 +61,7 @@ codeview serve   # http://localhost:8787 で確認する
 |---|---|
 | `[[roots]]` | 走査する置き場。`group` と、`path`（そのディレクトリが1つのリポ）か `children`（直下の git リポすべて）のどちらか一方。並び順がトップの左メニューのグループの順になる。グループの中は、ファイル数の多いリポから並ぶ |
 | `[scan]` | `skip_dirs`（走査しないディレクトリ名）・`exclude_prefixes`（出力しないパスの接頭辞）・`skip_exts`（出力しない拡張子）。リポごとに足すときは `[scan.repos."<slug>"]` に `skip_exts` と `exclude_prefixes` を書く（全体の値に足される。slug はページのパスと同じ） |
-| `[[accounts]]` | Issue をまとめる単位で、1〜2個。`name`・`hosts`（`origin` の remote のホスト）・`groups`（remote が無いときの決め手）・`issues`（既定の `github` か、Issue を返す拡張のモジュール名）・`gh_config_dir`（`issues = "github"` のときに使う gh の config dir） |
+| `[[accounts]]` | Issue をまとめる単位で、1〜2個。`name`・`hosts`（`origin` の remote のホスト）・`groups`（remote が無いときの決め手）・`issues`（既定の `github` か、Issue を返す拡張のモジュール名）・`gh_config_dir`（`issues = "github"` のときに使う gh の config dir）・`check_every_hours`（`publish --if-changed` がこのアカウントのリポの変化を見る間隔。時間単位の正の整数。省けば毎回見る） |
 | `[publish]` | 配信先の `remote`（既定 `origin`）と `branch`（既定 `deploy`） |
 | `[plugins]` | 読み込む拡張（`modules`）。拡張ごとの設定は `[plugins.<モジュール名の末尾>]` に置く |
 
@@ -133,6 +133,8 @@ codeview publish --if-changed  # 前回から変化が無ければ何もしな�
 ```
 
 `publish` は `public/` と `functions/` だけを載せた親の無い単一コミットを作り、`[publish]` の branch へ force push する。作業ツリーと index には触らない。Cloudflare Pages はそのブランチを見ており、push が配信を起こす。日常の配信に Cloudflare の API トークンは要らない。
+
+`--if-changed` が見る変化は、走査対象のリポと配信するリポのコミット、本体の版、拡張の `fingerprint()` である。GitHub の Issue だけが動いても配信しない。Issue は、次にコミットなどの変化で配信するときに載る。
 
 ### 初回だけ: Cloudflare の設定
 
