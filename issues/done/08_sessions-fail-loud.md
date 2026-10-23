@@ -1,3 +1,36 @@
+## PR記録: fix: 例の拡張 sessions は、セッションを1本も読めなければ生成を止める
+issue: 08 (08_sessions-fail-loud.md)
+PR: https://github.com/yktsnet/codeview/pull/26
+
+## 変更内容
+- `_sessions()` が config dir ごとの失敗を集め、成功した config dir が1つも無ければ `PluginError` を上げる。メッセージは失敗した config dir ごとの理由を含む英文
+- `list --json` の行に `id`・`repo`・`title`・`prompts`・`started`・`updated` のどれかが欠けていれば、その config dir の失敗として扱う（オブジェクトでない行も同じ）
+- `css()` で `_sessions(ctx)` を呼び、生成前に `error:` で止める（`publish` は指紋の時点で同じ例外が上がり、push せずに非0で終わる）
+- 一部の config dir だけの失敗は、今までどおり警告して飛ばす。`list` が0件は止めない
+- モジュールと `_sessions()` の docstring を新しい振る舞いに合わせた
+
+## 保証
+- 全 config dir で `list` が失敗・`ccreel` が無い → `error:`・非0・`public/` 無し: `tests/test_example_sessions.py` の `test_build_stops_without_ccreel`、`test_build_stops_when_every_list_fails`
+- 行の項目が欠ければ config dir の失敗: `test_build_stops_when_a_list_row_lacks_a_field`（6項目それぞれ）
+- `publish --if-changed` は push しない: `test_publish_if_changed_does_not_push_when_list_fails`
+- 0件は止めない: `test_build_with_empty_list_is_not_an_error`
+- 一部の失敗は警告して続ける（維持）: `test_build_survives_one_failing_config_dir`
+- `docs/guarantees.md` §5 を上に合わせて更新
+
+## 静的確認結果
+- `nix develop -c pytest -q`: 81 passed。新しいテストは旧実装で失敗することを確かめた
+- 本体（`codeview/`）は変更なし
+
+## 確認者の判定
+| 項目 | 判定 |
+|---|---|
+| `nix develop -c pytest -q` が通る | 合 |
+| 新しいテストは `site` フィクスチャで生成器を別プロセスで呼び、偽の `ccreel` で確かめている | 合 |
+| 保証（全 config dir 失敗で止まる／行の項目欠け／publish は push しない／0件は止めない／一部失敗は警告／台帳） | すべて合 |
+| 範囲の外 | なし |
+
+---
+
 ## 例の拡張 sessions は、セッションを1本も読めなければ生成を止める
 id: 08
 branch-slug: sessions-fail-loud
