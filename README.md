@@ -121,6 +121,10 @@ days = 14   # 載せる期間（既定 30）
 
 トップの左メニューに `sessions` が加わり、セッションごとのページから Issue とリポへ飛べる。設定できるキーは `sessions.py` の先頭の説明にある。
 
+<p>
+  <img src="docs/screenshots/sessions.png" alt="セッションのページ。題・リポ・Issue 番号・ブランチの下に resume のコマンドがあり、発言と応答がターンごとに並ぶ" width="640">
+</p>
+
 ## Publishing
 
 生成物には全リポのコードが入る。**配信するリポ（`codeview.toml` を置いたリポ）は private にし、生成物を公開の場所に置かない。**
