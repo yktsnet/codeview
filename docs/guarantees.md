@@ -162,7 +162,7 @@
 | `list` の失敗・`ccreel` が無いときは警告して続ける | `test_build_survives_one_failing_config_dir`、`test_build_survives_missing_ccreel` |
 | トップの入口と件数 | `test_top_menu_links_sessions_without_titles` |
 | 設定の誤り | `test_rejects_bad_options` |
-| 指紋は `every_hours` の枠で動く | `test_fingerprint_moves_only_across_windows` |
+| 指紋は最新の更新時刻を `every_hours` の枠に丸めて動く | `test_fingerprint_moves_only_across_windows`、`test_fingerprint_follows_every_hours` |
 | 変わらないセッションはページを使い回す（件数を左に出さないのは、セッションが1本増えても、ほかのページの内容が変わらないようにするため） | `test_second_build_reuses_unchanged_pages`、`test_session_page_side_has_no_counts` |
 | 更新されたセッションは作り直す | `test_updated_session_is_rebuilt` |
 | Issue の状態が変わったら作り直す | `test_issue_link_follows_issue_state` |

@@ -2,25 +2,18 @@
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import posixpath
 import re
 import shutil
 import stat
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 from conftest import ROOT
 
 EXAMPLE = ROOT / "examples" / "plugins" / "sessions.py"
-
-# 関数だけを直接呼ぶテスト用。生成は site の別プロセスで確かめる
-_spec = importlib.util.spec_from_file_location("sessions", EXAMPLE)
-sessions = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(sessions)
 
 # 偽の ccreel。`list` は $FAKE_CCREEL_DIR/list-<config dir の名前>.jsonl（無ければ list.jsonl）を、
 # `show <id>` は <id>.jsonl を返す。受けた引数を calls.log に残す
@@ -263,15 +256,30 @@ def test_rejects_bad_options(site, ccreel, extra, message):
     assert "error:" in proc.stderr and message in proc.stderr
 
 
-def test_fingerprint_moves_only_across_windows():
-    def at(updated: str) -> str:
-        sessions._cache.clear()
-        sessions._cache["list"] = [{"ts": sessions._ts(updated)}]
-        return sessions.fingerprint(SimpleNamespace(options={"every_hours": 3}))
+def test_fingerprint_moves_only_across_windows(site, ccreel):
+    _use_sessions(site)
 
+    def at(newest: str, older: str = "2026-02-01T00:30:00Z") -> str:
+        rows = [dict(SESSIONS[0], updated=newest), dict(SESSIONS[1], updated=older)]
+        (ccreel / "list.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+        return site.fingerprint()
+
+    # 既定の every_hours は 3。最新の更新が同じ枠（00:00〜03:00）の中なら変わらない
     assert at("2026-03-01T00:10:00Z") == at("2026-03-01T02:50:00Z")
     assert at("2026-03-01T02:50:00Z") != at("2026-03-01T03:10:00Z")
-    sessions._cache.clear()
+    # 古い方のセッションが動いても、最新を超えなければ変わらない。超えれば最新として拾う
+    assert at("2026-03-01T01:00:00Z") == at("2026-03-01T01:00:00Z", older="2026-02-20T00:00:00Z")
+    assert at("2026-03-01T01:00:00Z") != at("2026-03-01T01:00:00Z", older="2026-03-05T00:00:00Z")
+
+
+def test_fingerprint_follows_every_hours(site, ccreel):
+    _use_sessions(site, "\n[plugins.sessions]\nevery_hours = 24\n")
+    (ccreel / "list.jsonl").write_text(json.dumps(dict(SESSIONS[0], updated="2026-03-01T03:10:00Z")) + "\n")
+    inside = site.fingerprint()
+    (ccreel / "list.jsonl").write_text(json.dumps(dict(SESSIONS[0], updated="2026-03-01T23:50:00Z")) + "\n")
+    assert site.fingerprint() == inside
+    (ccreel / "list.jsonl").write_text(json.dumps(dict(SESSIONS[0], updated="2026-03-02T00:10:00Z")) + "\n")
+    assert site.fingerprint() != inside
 
 
 def _shows(ccreel: Path) -> list[str]:
