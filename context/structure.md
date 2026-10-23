@@ -15,9 +15,13 @@ codeview/
   cloudflare.py  Cloudflare API と資格情報
   cf_setup.py    Pages プロジェクト・カスタムドメイン・Access を作る
   cf_status.py   Pages プロジェクトと直近のデプロイを表示する
+examples/
+  plugins/
+    sessions.py  拡張の実例。ccreel のセッションを一覧と本文のページにする（本体のパッケージには入らない）
 tests/
   conftest.py    見本のリポ群・設定・偽の gh を作るフィクスチャ
   test_*.py      build・issues・plugins・publish の外から見た振る舞い
+  test_example_sessions.py  例の拡張 sessions.py の振る舞い。偽の ccreel で確かめる
 ```
 
 ## データの流れ

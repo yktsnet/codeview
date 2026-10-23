@@ -10,6 +10,7 @@
 - **Issue も1か所にまとまる**: 全リポの未消化の Issue を1つの一覧にする
 - **GitHub の複数アカウントに対応**: 個人用と仕事用のように、別々のアカウントの Issue を分けて取り込める
 - **スマホで軽い**: JavaScript なしの静的 HTML なので、外出先でもすぐ開ける
+- **拡張でページを足せる**: Python のモジュール1つで、自前のページや Issue の取り込み元を足せる。実例として、Claude Code のセッション履歴を載せる拡張を同梱している（[Extensions](#extensions)）
 
 <p>
   <img src="docs/screenshots/issues.png" alt="Issue 一覧。未消化の Issue が Open と Draft のバッジ付きで並ぶ" width="640">
@@ -105,6 +106,20 @@ gh_config_dir = "~/.config/gh-work"   # 仕事のアカウントで gh auth logi
 | `issues(ctx, account, repos)` | アカウントの `issues` にこのモジュールを挙げたとき、そのアカウントの未消化の Issue（`codeview.issues.Issue`）を返す |
 
 `ctx` は設定・走査したリポの一覧・出力先・`[plugins.<名前>]` の表（`ctx.options`）・HEAD のファイルを読む `ctx.read(repo, path)` を持つ。
+
+### 例: Claude Code のセッションを載せる
+
+[`examples/plugins/sessions.py`](examples/plugins/sessions.py) は、[ccreel](https://github.com/yktsnet/ccreel) の `list --json` / `show --json` から Claude Code のセッションを読み、一覧と本文のページを足す拡張である。ccreel が `PATH` に要る。`codeview.toml` の隣へコピーして、設定に挙げれば試せる。
+
+```toml
+[plugins]
+modules = ["sessions"]
+
+[plugins.sessions]
+days = 14   # 載せる期間（既定 30）
+```
+
+トップの左メニューに `sessions` が加わり、セッションごとのページから Issue とリポへ飛べる。設定できるキーは `sessions.py` の先頭の説明にある。
 
 ## Publishing
 

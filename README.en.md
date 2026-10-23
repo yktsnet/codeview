@@ -10,6 +10,7 @@ Turns your local git repositories and their GitHub issues into static HTML, and 
 - **All issues in one place too**: open issues from every repo in a single list
 - **Multiple GitHub accounts**: pull issues from separate accounts, such as personal and work, and keep them apart
 - **Light on a phone**: static HTML with no JavaScript, so it opens quickly while you're away
+- **Extensible**: a single Python module can add your own pages or an issue source. A bundled example shows Claude Code session history ([Extensions](#extensions))
 
 <p>
   <img src="docs/screenshots/issues.png" alt="Issues: open issues listed with Open and Draft badges" width="640">
@@ -105,6 +106,20 @@ An extension has only the functions it needs from the following.
 | `issues(ctx, account, repos)` | When an account's `issues` names this module, returns that account's open issues (`codeview.issues.Issue`) |
 
 `ctx` holds the config, the scanned repositories, the output directories, the `[plugins.<name>]` table (`ctx.options`), and `ctx.read(repo, path)` to read a file at HEAD.
+
+### Example: show Claude Code sessions
+
+[`examples/plugins/sessions.py`](examples/plugins/sessions.py) reads Claude Code sessions from [ccreel](https://github.com/yktsnet/ccreel)'s `list --json` / `show --json` and adds a list page and a page per session. It needs `ccreel` on your `PATH`. Copy it next to `codeview.toml` and list it in the config to try it.
+
+```toml
+[plugins]
+modules = ["sessions"]
+
+[plugins.sessions]
+days = 14   # how far back to show (default 30)
+```
+
+A `sessions` entry appears in the left menu of the top page, and each session page links to its issue and repository. The available keys are described at the top of `sessions.py`.
 
 ## Publishing
 
