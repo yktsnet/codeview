@@ -9,6 +9,7 @@
     days = 14
 
 ccreel (https://github.com/yktsnet/ccreel) が要る。`list --json` と `show --json` を外部コマンドとして呼ぶ。
+すべての config dir で `list` が読めなければ（ccreel が無いときを含む）、生成を始める前にエラーで止める。
 設定は `[plugins.sessions]`:
     ccreel       ccreel のコマンド（既定 "ccreel"）。定期実行の PATH に無いときはパスで渡す
     config_dirs  読む config dir の列（既定 ["~/.claude"]）
@@ -164,28 +165,55 @@ def _ts(value: str) -> int:
     return int(datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp())
 
 
+# `list --json` の1行に要る項目。欠けた行は、その config dir の失敗として扱う
+_LIST_FIELDS = ("id", "repo", "title", "prompts", "started", "updated")
+
+
+def _parse_list(out: str) -> list[dict]:
+    rows = []
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        if not isinstance(row, dict):
+            raise ValueError("a line of `list --json` is not an object")
+        missing = [k for k in _LIST_FIELDS if k not in row]
+        if missing:
+            raise ValueError(f"`list --json` has no '{missing[0]}' in a line")
+        row["ts"] = _ts(row["updated"])
+        row["started_ts"] = _ts(row["started"])
+        rows.append(row)
+    return rows
+
+
 def _sessions(ctx) -> list[dict]:
-    """config dir をまとめた新しい順の一覧。ccreel が無い・失敗した config dir は警告して飛ばし、生成は止めない。"""
+    """config dir をまとめた新しい順の一覧。
+
+    一部の config dir で失敗したときは警告して飛ばす。すべてで失敗したとき（ccreel が無いときを含む）は
+    PluginError で止める。定期実行の PATH に ccreel が無いまま、セッションの無いサイトを配信しないため。
+    """
     if "list" in _cache:
         return _cache["list"]
     opts = _opts(ctx)
     rows: list[dict] = []
+    failures: list[tuple[str, str]] = []
     for config_dir in opts["config_dirs"]:
-        found: list[dict] = []
         try:
             out = _ccreel(opts, config_dir, "list", "--json", "--limit", "0", "--since", f"{opts['days']}d")
-            for line in out.splitlines():
-                if line.strip():
-                    row = json.loads(line)
-                    row["ts"] = _ts(row["updated"])
-                    row["started_ts"] = _ts(row["started"])
-                    row["config_dir"] = config_dir
-                    found.append(row)
-        except (OSError, subprocess.SubprocessError, ValueError, KeyError) as e:
-            detail = getattr(e, "stderr", None) or str(e)
-            print(f"warning: sessions: ccreel list failed for {config_dir}, skip: {detail.strip()}", file=sys.stderr)
+            found = _parse_list(out)
+        except (OSError, subprocess.SubprocessError, ValueError, AttributeError, TypeError) as e:
+            failures.append((config_dir, (getattr(e, "stderr", None) or str(e)).strip()))
             continue
+        for row in found:
+            row["config_dir"] = config_dir
         rows += found
+    if len(failures) == len(opts["config_dirs"]):
+        from codeview.plugins import PluginError
+
+        reasons = "".join(f"\n  {d}: {detail}" for d, detail in failures)
+        raise PluginError(f"sessions: ccreel list failed for every config dir:{reasons}")
+    for config_dir, detail in failures:
+        print(f"warning: sessions: ccreel list failed for {config_dir}, skip: {detail}", file=sys.stderr)
     rows.sort(key=lambda r: r["ts"], reverse=True)
     _cache["list"] = rows
     return rows
@@ -228,8 +256,9 @@ def _repo_slug(ctx, name: str) -> str | None:
 
 
 def css(ctx) -> str:
-    # 本体が最初に呼ぶ口なので、設定の誤りをここで ConfigError にして、public/ に触れる前に止める
-    _opts(ctx)
+    # 本体が最初に呼ぶ口で、ここで上がった ConfigError / PluginError だけが public/ に触れる前の `error:` になる。
+    # 設定の誤りと、一覧が1本も読めないことをここで表に出す
+    _sessions(ctx)
     return CSS
 
 

@@ -144,7 +144,8 @@
 - `[plugins.sessions]` の `config_dirs` ごとに `ccreel list --json --limit 0 --since <days>d --config-dir <dir>` を呼び、全部をまとめて新しい順に `public/sessions/index.html` へ一覧を書く。各セッションの本文を `ccreel show <id> --json` から `public/sessions/<id>.html` に書く
 - 本文のページには発言と応答のテキストを出し、応答の Markdown は生の HTML・`<script>` を出さずに描く。`ccreel resume <id>` の行を出す
 - セッションの `issue` が一覧にある Issue を指せば、先頭の 0 を無視してその Issue のページへのリンクにする。`repo` が走査対象のリポならリポのページへリンクする。どちらも無ければリンクにしない
-- `show` に失敗したセッションも本文のページは作り、`Could not read this session` を出す。`ccreel` が無いとき、またはいずれかの config dir で `list` が失敗したときは、警告を出してそこを飛ばし、生成は止めない
+- `show` に失敗したセッションも本文のページは作り、`Could not read this session` を出す。一部の config dir で `list` が失敗したときは、警告を出してそこを飛ばし、生成は止めない
+- すべての config dir で `list` が失敗したとき（`ccreel` が無いときを含む）は、`codeview build` が `error:` と config dir ごとの理由を出して非0で終わり、`public/` を作らない。`codeview publish --if-changed` も push せずに非0で終わる。`list` の1行に `id`・`repo`・`title`・`prompts`・`started`・`updated` のどれかが欠けていれば、その config dir の `list` の失敗として扱う。`list` が成功して0件のときは止めず、セッションのページを書かずに生成を終える
 - トップの左メニューに `sessions` への入口と件数を出し、トップにセッションの題は出さない
 - `ccreel`・`config_dirs`・`days`・`every_hours` 以外のキーや、型の誤りは `error:` を出して非0で終わる
 - `fingerprint()` は最新の更新時刻を `every_hours` の枠に丸め、枠の中の更新では変わらない
@@ -159,7 +160,10 @@
 | Issue（先頭の 0 を無視）とリポへのリンク | `test_links_to_issue_and_repo` |
 | 対応する先が無ければリンクにしない | `test_unlinked_when_issue_or_repo_is_missing` |
 | `show` に失敗したセッションのページ | `test_unreadable_session_still_gets_a_page` |
-| `list` の失敗・`ccreel` が無いときは警告して続ける | `test_build_survives_one_failing_config_dir`、`test_build_survives_missing_ccreel` |
+| 一部の config dir で `list` が失敗しても、警告を出して続ける | `test_build_survives_one_failing_config_dir` |
+| すべての config dir で `list` が失敗したときは `error:` で止める（`ccreel` が無いとき、`list` の行に項目が欠けているときを含む） | `test_build_stops_without_ccreel`、`test_build_stops_when_every_list_fails`、`test_build_stops_when_a_list_row_lacks_a_field` |
+| すべての config dir で `list` が失敗したとき、`publish --if-changed` は push しない | `test_publish_if_changed_does_not_push_when_list_fails` |
+| `list` が成功して0件のときは止めない | `test_build_with_empty_list_is_not_an_error` |
 | トップの入口と件数 | `test_top_menu_links_sessions_without_titles` |
 | 設定の誤り | `test_rejects_bad_options` |
 | 指紋は最新の更新時刻を `every_hours` の枠に丸めて動く | `test_fingerprint_moves_only_across_windows`、`test_fingerprint_follows_every_hours` |

@@ -7,11 +7,12 @@ import posixpath
 import re
 import shutil
 import stat
+import subprocess
 from pathlib import Path
 
 import pytest
 
-from conftest import ROOT
+from conftest import ROOT, git
 
 EXAMPLE = ROOT / "examples" / "plugins" / "sessions.py"
 
@@ -231,12 +232,53 @@ def test_build_survives_one_failing_config_dir(site, ccreel):
     assert "warning: sessions: ccreel list failed for ~/.claude-broken" in proc.stderr
 
 
-def test_build_survives_missing_ccreel(site, ccreel):
+def _assert_build_stops(site, *reasons: str) -> None:
+    _, proc = site.build(check=False)
+    assert proc.returncode != 0
+    assert "error:" in proc.stderr
+    for reason in reasons:
+        assert reason in proc.stderr
+    assert not (Path(site.env["CODEVIEW_OUT"]) / "public").exists()
+
+
+def test_build_stops_without_ccreel(site, ccreel):
     _use_sessions(site, '\n[plugins.sessions]\nccreel = "/nonexistent/ccreel"\n')
-    public, proc = site.build()
+    _assert_build_stops(site, "~/.claude", "/nonexistent/ccreel")
+
+
+def test_build_stops_when_every_list_fails(site, ccreel):
+    _use_sessions(site, '\n[plugins.sessions]\nconfig_dirs = ["~/.claude", "~/.claude-broken"]\n')
+    (ccreel / "list.jsonl").unlink()
+    (ccreel / "list-.claude-broken.jsonl").write_text("not json\n")
+    # config dir ごとの理由が出る。1つ目は偽の ccreel の標準エラー、2つ目は JSON の誤り
+    _assert_build_stops(site, "~/.claude: no session", "~/.claude-broken: ")
+
+
+@pytest.mark.parametrize("field", ["id", "repo", "title", "prompts", "started", "updated"])
+def test_build_stops_when_a_list_row_lacks_a_field(site, ccreel, field):
+    row = {k: v for k, v in SESSIONS[0].items() if k != field}
+    (ccreel / "list.jsonl").write_text(json.dumps(row) + "\n")
+    _use_sessions(site)
+    _assert_build_stops(site, "~/.claude", f"'{field}'")
+
+
+def test_build_with_empty_list_is_not_an_error(site, ccreel):
+    (ccreel / "list.jsonl").write_text("")
+    _use_sessions(site)
+    public, _ = site.build()
     assert (public / "index.html").is_file()
     assert not (public / "sessions").exists()
-    assert "warning: sessions" in proc.stderr
+
+
+def test_publish_if_changed_does_not_push_when_list_fails(site, ccreel, tmp_path):
+    remote = tmp_path / "remote.git"
+    subprocess.run(["git", "init", "-q", "--bare", str(remote)], check=True)
+    git(site.config.parent, "remote", "add", "origin", str(remote))
+    _use_sessions(site, '\n[plugins.sessions]\nccreel = "/nonexistent/ccreel"\n')
+    proc = site.run("-m", "codeview", "publish", "--if-changed", check=False)
+    assert proc.returncode != 0
+    assert "/nonexistent/ccreel" in proc.stderr
+    assert git(remote, "branch", "--list", "deploy") == ""
 
 
 @pytest.mark.parametrize(
