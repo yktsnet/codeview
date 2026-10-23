@@ -121,6 +121,10 @@ days = 14   # how far back to show (default 30)
 
 A `sessions` entry appears in the left menu of the top page, and each session page links to its issue and repository. The available keys are described at the top of `sessions.py`.
 
+<p>
+  <img src="docs/screenshots/sessions.png" alt="A session page. Under the title, repository, issue number and branch sit the resume command and the prompts and replies, turn by turn" width="640">
+</p>
+
 ## Publishing
 
 The generated files contain the code of every repository. **Keep the repository you publish from (the one holding `codeview.toml`) private, and never put the generated files anywhere public.**
