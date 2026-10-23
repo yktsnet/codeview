@@ -1,7 +1,7 @@
 ## 例の拡張 sessions は、セッションを1本も読めなければ生成を止める
 id: 08
 branch-slug: sessions-fail-loud
-status: open
+status: close
 type: fix
 対象: examples/plugins/sessions.py, tests/test_example_sessions.py, docs/guarantees.md
 内容: 例の拡張 `examples/plugins/sessions.py` は、`ccreel` が無いときや、すべての config dir で `list` が失敗したときも、警告を1行出すだけで生成を続ける。定期実行の `PATH` に ccreel が無いと、`publish --if-changed` はセッションのページが無いサイトを黙って配信する。ccreel の `list --json` の形が変わって要る項目が欠けた場合も、同じ結果になる。すべての config dir で読めなかったときは生成を始める前に止め、前回の配信を残す。
