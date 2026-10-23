@@ -1,7 +1,7 @@
 ## ccreel のセッションを載せる拡張を、例として同梱する
 id: 07
 branch-slug: example-sessions-plugin
-status: open
+status: close
 type: feat
 対象: examples/plugins/sessions.py (新規), tests/test_example_sessions.py (新規), README.md, README.en.md, docs/guarantees.md, context/structure.md
 内容: 拡張の口の実例として、Claude Code のセッションを [ccreel](https://github.com/yktsnet/ccreel) の JSON 出力から読み、一覧と本文のページを足す拡張を `examples/plugins/` に置く。README の Extensions 節から1行で案内し、読者が自分の設定の隣へ写して試せるようにする。
