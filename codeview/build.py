@@ -204,22 +204,14 @@ def build_repo(
     def file_href(parent_dir: str, child: str) -> str:
         return f"/{slug}/" + (f"{parent_dir}/" if parent_dir else "") + f"{child}.html"
 
-    for path, sha in entries:
-        data = blobs.get(sha, b"")
-        parts = path.split("/")
-        parent = "/".join(parts[:-1])
-        fname = parts[-1]
-
+    def file_body(path: str, data: bytes) -> tuple[str, str, str, list[str], bool]:
+        """(本文, 足すスクリプト, 幅, メタ情報, 本文をコピーできるか)。"""
+        fname = path.split("/")[-1]
         extra_script = ""
         copy_body = False
         width = "w-md"
         meta = [human(len(data))]
-        if path in images:
-            target = out_root / slug / path
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(data)
-        is_svg = fname.lower().endswith(".svg")
-        if is_image(path) and not is_svg:
+        if is_image(path) and not fname.lower().endswith(".svg"):
             if path in images:
                 body = (
                     f'<img class="imgfile" src="/{slug}/{quote(path)}" '
@@ -241,6 +233,19 @@ def build_repo(
             copy_body = True
             width = "w-code"
             meta[:0] = [_lines(data)] + ([lang] if lang else [])
+        return body, extra_script, width, meta, copy_body
+
+    for path, sha in entries:
+        data = blobs.get(sha, b"")
+        parts = path.split("/")
+        parent = "/".join(parts[:-1])
+        fname = parts[-1]
+
+        if path in images:
+            target = out_root / slug / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        body, extra_script, width, meta, copy_body = file_body(path, data)
 
         files = siblings.get(parent, [])
         i = files.index(fname)
@@ -285,8 +290,20 @@ def build_repo(
             slug, parent, children_of(parent)
         )
         readme = _readme_of(tree.get(parent, {}))
+        # README が無ければ、一覧の先頭のファイルを README の位置に描く
+        top = None if readme else next(iter(siblings.get(parent, [])), None)
         extra_script = ""
-        if readme is None:
+        width = "w-md"
+        if top is not None:
+            tpath = f"{parent}/{top}" if parent else top
+            body, extra_script, width, _, _ = file_body(
+                tpath, blobs.get(dict(entries).get(tpath, ""), b"")
+            )
+            main = (
+                f'<div class="readme-head"><a href="/{slug}/{tpath}.html">'
+                f"{html.escape(top)}</a></div>{body}"
+            )
+        elif readme is None:
             main = f'<p class="empty">{html.escape(title)}<br>Select a file</p>'
         else:
             rpath = f"{parent}/{readme}" if parent else readme
@@ -309,8 +326,8 @@ def build_repo(
                 main,
                 detail=False,
                 extra_script=extra_script,
-                width="w-md" if readme else "",
-                readme=readme is not None,
+                width=width if readme or top else "",
+                readme=readme is not None or top is not None,
                 path=f"/{slug}/" + (f"{parent}/" if parent else "") + "index.html",
             ),
         )

@@ -134,8 +134,11 @@ def test_readme_on_directory_page(site):
     page = (public / "alpha" / "index.html").read_text()
     assert 'class="readme"' in page
     assert "alpha の説明" in page
-    # README の無いディレクトリは案内文のまま
-    assert "Select a file" in (public / "alpha" / "docs" / "index.html").read_text()
+    # README の無いディレクトリは、一覧の先頭のファイルを描く
+    docs = (public / "alpha" / "docs" / "index.html").read_text()
+    assert 'class="readme"' in docs
+    assert '<a href="guide.md.html">guide.md</a>' in docs
+    assert "Select a file" not in docs
 
 
 def test_no_plugins_means_plain_top(site):
