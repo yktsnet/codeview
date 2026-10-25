@@ -482,6 +482,15 @@ MIDDLEWARE = """export const onRequest = ({ request, next }) => {
 """
 
 
+FAVICON = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+    '<rect width="32" height="32" rx="7" fill="#26313d"/>'
+    '<g transform="translate(4 4)" fill="none" stroke="#7ba3cc" stroke-width="2.25"'
+    ' stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></g></svg>\n'
+)
+
+
 def write(target: Path, content: str) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
@@ -494,4 +503,5 @@ def build_style(out_root: Path, extra_css: str = "") -> str:
     digest = hashlib.sha256(css.encode()).hexdigest()[:10]
     STYLE_HREF = f"/style.{digest}.css"
     write(out_root / f"style.{digest}.css", css)
+    write(out_root / "favicon.svg", FAVICON)
     return STYLE_HREF

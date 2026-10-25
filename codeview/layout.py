@@ -71,6 +71,7 @@ def page(
         '<meta name=viewport content="width=device-width,initial-scale=1">'
         f"<title>{html.escape(title)}</title>"
         f'<link rel=stylesheet href="{get_style_href()}">'
+        '<link rel=icon href="/favicon.svg" type="image/svg+xml">'
         f"</head><body{cls}>"
         f'<aside id="side">{side}</aside>'
         f'<main id="main"><div class="wrap {width}">{main}</div></main>'
