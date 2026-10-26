@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -167,6 +168,92 @@ def test_file_page_navigation(site):
     assert 'class="pager"' not in (public / "alpha" / "docs" / "guide.md.html").read_text()
 
 
+def _commit_at(repo, files, when):
+    """コミッタの日時を固定してコミットする。"""
+    for name, body in files.items():
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
+        (repo / name).write_text(body)
+    git(repo, "add", "-A")
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-qm", "dated"],
+        check=True,
+        env={**os.environ, "GIT_COMMITTER_DATE": when, "GIT_AUTHOR_DATE": when},
+    )
+
+
+def _head_of(page):
+    return re.search(r'<div class="head".*?</span>', page, re.S).group(0)
+
+
+def test_file_header_shows_last_modified_not_in_listing(site):
+    alpha = site.home / "own" / "alpha"
+    _commit_at(alpha, {"main.py": 'print("hello 2")\n'}, "2024-03-05T12:00:00Z")
+    _commit_at(alpha, {"docs/guide.md": "# guide 2\n"}, "2025-11-20T12:00:00Z")
+    public, _ = site.build()
+
+    # そのパスに触れた最後のコミットの日時。main.py は初回のコミットではなく 2024-03-05 の側
+    main_head = _head_of((public / "alpha" / "main.py.html").read_text())
+    assert '<time data-ts="1709640000"' in main_head
+    assert "1 line · Python · " in main_head
+    guide = (public / "alpha" / "docs" / "guide.md.html").read_text()
+    assert '<time data-ts="1763640000"' in _head_of(guide)
+    # 静的に書く文字は日付で、相対時刻ではない（組み立て時の現在時刻に依らない）
+    text = re.search(r'<time data-ts="1709640000"[^>]*>([^<]*)</time>', main_head).group(1)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", text)
+    assert "time[data-ts]" in (public / "alpha" / "main.py.html").read_text()
+
+    # 左の一覧とディレクトリのページには日付を出さない
+    for page in (
+        public / "alpha" / "main.py.html",
+        public / "alpha" / "index.html",
+        public / "alpha" / "docs" / "index.html",
+    ):
+        side = re.search(r'<aside id="side">.*?</aside>', page.read_text(), re.S).group(0)
+        assert "<time" not in side
+    assert "<time" not in (public / "alpha" / "index.html").read_text()
+
+
+def test_dir_only_chains_collapse_into_one_row(site):
+    alpha = site.home / "own" / "alpha"
+    commit(
+        alpha,
+        {
+            "a/b/c/x.txt": "x\n",
+            "p/q.txt": "q\n",
+            "p/r/s.txt": "s\n",
+            "m/n/one.txt": "1\n",
+            "m/n/two.txt": "2\n",
+        },
+    )
+    public, _ = site.build()
+    top = (public / "alpha" / "index.html").read_text()
+    # a は中身がディレクトリ1つだけの連なりなので、ファイルのあるところまで1行にする
+    assert (
+        '<a class="item dir" href="a/b/c/index.html"><span class="t">a/b/c</span>'
+        '<span class="m">1</span></a>'
+    ) in top
+    # ファイルを持つ p はまとめない。途中で止まる連なりも、止まるところまで
+    assert '<a class="item dir" href="p/index.html"><span class="t">p</span><span class="m">2</span></a>' in top
+    assert '<a class="item dir" href="m/n/index.html"><span class="t">m/n</span><span class="m">2</span></a>' in top
+    assert '<span class="t">a</span>' not in top and '<span class="t">b</span>' not in top
+    # ディレクトリが先、名前の大小を無視した並び
+    names = re.findall(r'<a class="item (?:dir|file)[^"]*" href="[^"]*"><span class="t">([^<]*)', top)
+    assert names[:4] == ["a/b/c", "docs", "m/n", "p"]
+    assert names[4:] == ["main.py", "README.md", "uncommitted.py"]
+
+    # まとめた途中のディレクトリのページも書く。そこでは続きが1行になる
+    a = (public / "alpha" / "a" / "index.html").read_text()
+    assert '<a class="item dir" href="b/c/index.html"><span class="t">b/c</span>' in a
+    assert (public / "alpha" / "a" / "b" / "index.html").is_file()
+    assert (public / "alpha" / "a" / "b" / "c" / "index.html").is_file()
+    p = (public / "alpha" / "p" / "index.html").read_text()
+    assert '<a class="item dir" href="r/index.html"><span class="t">r</span>' in p
+    # パンくずは途中のディレクトリへリンクする
+    page = (public / "alpha" / "a" / "b" / "c" / "x.txt.html").read_text()
+    assert '<a href="../../index.html">a</a>' in page and '<a href="../index.html">b</a>' in page
+    _assert_relative_and_resolvable(public)
+
+
 def test_long_markdown_gets_toc(site):
     heads = "".join(f"## 節{i}\n\n本文\n\n" for i in range(4))
     commit(site.home / "own" / "alpha", {"docs/long.md": "# 表題\n\n" + heads})
@@ -266,7 +353,11 @@ def _assert_relative_and_resolvable(public):
 def test_links_are_relative_and_resolve(site):
     commit(
         site.home / "own" / "alpha",
-        {"docs/code.md": "コード `<a href=\"/x\">` の例\n\n[top](/) [dir](/docs/) [ext](https://example.com/)\n"},
+        {
+            "docs/code.md": "コード `<a href=\"/x\">` の例\n\n[top](/) [dir](/docs/) [ext](https://example.com/)\n",
+            # まとめた行（a/b/c）と、ヘッダの日付を含む
+            "a/b/c/x.txt": "x\n",
+        },
     )
     public, _ = site.build()
     assert _assert_relative_and_resolvable(public) > 50
@@ -608,7 +699,7 @@ def test_incremental_build_matches_full_build(site, tmp_path):
 
     # beta だけが変わっても、beta の中身を GitHub の URL で指す alpha は作り直す
     (beta / "app.py").unlink()
-    commit(beta, {"lib.py": "w = 5\n"})
+    commit(beta, {"lib.py": "w = 5\n", "a/b/c/x.txt": "x\n"})
     public, err = _build_incremental(site)
     assert "alpha: unchanged" not in err
     assert _tree(public) == _tree(_full_build_elsewhere(site, tmp_path / "2"))
