@@ -1,7 +1,7 @@
 ## ファイルのページに最終更新日を出し、ディレクトリだけの入れ子を1行にまとめる
 id: 09
 branch-slug: dates-and-collapsed-dirs
-status: open
+status: close
 type: feat
 対象: codeview/repo.py, codeview/build.py, codeview/layout.py, tests/test_build.py, docs/guarantees.md
 内容: ファイルのページのヘッダに、そのファイルの最終更新日（HEAD から辿ってそのパスに触れた最後のコミットの日時）を出す。左の一覧には日付を出さない。あわせて、中身がディレクトリ1つだけのディレクトリの連なりを、一覧では `a/b/c` の1行にまとめ、最も深いディレクトリのページへリンクする。
