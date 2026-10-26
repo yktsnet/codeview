@@ -1,3 +1,32 @@
+## PR記録: feat: ファイルのページに最終更新日を出し、ディレクトリだけの入れ子を1行にまとめる (#09)
+issue: 09 (09_dates-and-collapsed-dirs.md)
+PR: https://github.com/yktsnet/codeview/pull/30
+
+## 変更内容
+- ファイルのページのヘッダに、そのファイルに触れた最後のコミットの日時を `<time data-ts>` で出す。静的な文字は `YYYY-MM-DD` で、相対時刻への言い直しは既存の `TIME_SCRIPT` に任せる。リポごとに `git log` を1回だけ呼ぶ（`repo.last_modified`）
+- 左の一覧で、中身がディレクトリ1つだけのディレクトリの連なりを `a/b/c` の1行にまとめ、最も深いディレクトリのページへリンクする。途中のディレクトリのページも書き、パンくずはそこへリンクする
+- 左の一覧とディレクトリのページには日付を出さない。画面を見た user の指示で、当初の Issue（一覧の各行にも日付）から絞った。Issue の内容も合わせて直してある
+
+## 保証
+- ファイルのヘッダの最終更新日、左の一覧に日付を出さない → `tests/test_build.py::test_file_header_shows_last_modified_not_in_listing`
+- ディレクトリだけの連なりを1行にまとめる・途中のページとパンくず → `test_dir_only_chains_collapse_into_one_row`
+- 維持する保証（相対リンク・`--incremental` の一致）→ `test_links_are_relative_and_resolve`、`test_incremental_build_matches_full_build`（まとめた行を含む見本に広げた）
+
+## 静的確認結果
+- `nix develop -c pytest -q`: 83 passed
+
+## 確認者の判定
+| 項目 | 判定 |
+|---|---|
+| `pytest -q` が通る | 合 |
+| ファイルのヘッダに `<time data-ts>` が出る | 合 |
+| 左の一覧に `<time>` が無い | 合 |
+| `a/b/c/x.txt` だけの `a` が `a/b/c` の1行になり相対リンクする | 合 |
+
+注: 静的な日付は生成する端末のローカルのタイムゾーンで書く。
+
+---
+
 ## ファイルのページに最終更新日を出し、ディレクトリだけの入れ子を1行にまとめる
 id: 09
 branch-slug: dates-and-collapsed-dirs
