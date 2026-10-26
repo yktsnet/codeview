@@ -49,6 +49,35 @@ def tracked_blobs(repo: Path) -> list[tuple[str, str]]:
     return entries
 
 
+def last_modified(repo: Path) -> dict[str, int]:
+    """HEAD から辿って各パスに最後に触れたコミットの日時（コミッタ日時の epoch 秒）。
+
+    リポごとに `git log` を1回だけ呼ぶ。コミットが無ければ空。shallow clone では辿れた範囲の値になる。
+    """
+    proc = subprocess.run(
+        ["git", "log", "-z", "--no-renames", "--format=%x01%ct", "--name-only", "HEAD"],
+        cwd=repo,
+        capture_output=True,
+    )
+    if proc.returncode != 0:
+        return {}
+    found: dict[str, int] = {}
+    ts = 0
+    after_header = False
+    for token in proc.stdout.split(b"\0"):
+        if token.startswith(b"\x01"):
+            ts = int(token[1:])
+            after_header = True
+            continue
+        # ヘッダの直後の名前だけ、書式が差し込んだ改行を先頭に持つ
+        if after_header and token.startswith(b"\n"):
+            token = token[1:]
+        after_header = False
+        if token:
+            found.setdefault(token.decode("utf-8", "replace"), ts)
+    return found
+
+
 def read_blobs(repo: Path, shas: list[str]) -> dict[str, bytes]:
     """blob を一括で読む。sha -> bytes。"""
     blobs = {}

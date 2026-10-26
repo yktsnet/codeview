@@ -21,6 +21,7 @@ from codeview import config, plugins
 from codeview.issues import collect
 from codeview.layout import (
     FILE_SCRIPT,
+    TIME_SCRIPT,
     build_index,
     crumb,
     file_head,
@@ -47,6 +48,7 @@ from codeview.repo import (
     account_of,
     branch,
     head,
+    last_modified,
     markdown_mentions,
     owner_repo,
     read_blobs,
@@ -159,6 +161,7 @@ def build_repo(
     if local_root == home or local_root.startswith(home + "/"):
         local_root = "~" + local_root[len(home):]
 
+    modified = last_modified(repo)
     tree = {}
     dir_files = {}
     for path, sha in entries:
@@ -174,11 +177,26 @@ def build_repo(
                 dir_files[full] = dir_files.get(full, 0) + 1
 
     def children_of(parent):
+        """(表示名, 種別, 件数かサイズ)。中身がディレクトリ1つだけの連なりは1行にまとめる。"""
         prefix = f"{parent}/" if parent else ""
-        return [
-            (c, k, dir_files.get(prefix + c, 0) if k == "dir" else s)
-            for c, (k, s) in tree.get(parent, {}).items()
-        ]
+        rows = []
+        for c, (k, s) in tree.get(parent, {}).items():
+            full = prefix + c
+            if k == "file":
+                rows.append((c, k, s))
+                continue
+            name = c
+            while True:
+                kids = tree[full]
+                if len(kids) != 1:
+                    break
+                (sub, (sub_kind, _)), = kids.items()
+                if sub_kind != "dir":
+                    break
+                name += f"/{sub}"
+                full += f"/{sub}"
+            rows.append((name, k, dir_files[full]))
+        return rows
 
     # 前後のファイルへのリンクは、左の一覧と同じ並び（名前の大小を無視）で決める
     siblings: dict[str, list[str]] = {}
@@ -263,6 +281,7 @@ def build_repo(
                 f"{local_root}/{path}",
                 copy_body,
                 by_file.get((slug, path), ()),
+                modified.get(path, 0),
             )
             + body
             + pager(prev, nxt)
@@ -277,7 +296,7 @@ def build_repo(
                 side,
                 main,
                 detail=True,
-                extra_script=extra_script + FILE_SCRIPT,
+                extra_script=extra_script + FILE_SCRIPT + TIME_SCRIPT,
                 width=width,
                 path=f"/{slug}/{path}.html",
             ),

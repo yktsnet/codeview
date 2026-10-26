@@ -102,7 +102,7 @@ def crumb(slug: str, rel_parts: list[str], is_file: bool, home: bool = False) ->
 
 
 def file_head(
-    fname: str, size_label: str, abs_path: str, copy_body: bool, issues=()
+    fname: str, size_label: str, abs_path: str, copy_body: bool, issues=(), modified: int = 0
 ) -> str:
     """ファイル名クリックで絶対パスをコピーできるヘッダ。
 
@@ -121,11 +121,12 @@ def file_head(
         f"Issue: {html.escape(i.repo)} #{html.escape(i.ref)}</a>"
         for i in issues
     )
+    when = f" · {_stamp(modified)}" if modified else ""
     return (
         f'<div class="head" data-path="{html.escape(abs_path, quote=True)}">'
         f'<h2><button class="hpath" id="copy-path" type="button" title="Copy path">'
         f"{html.escape(fname)}</button></h2>"
-        f'<span class="meta">{html.escape(size_label)}</span>{links}'
+        f'<span class="meta">{html.escape(size_label)}{when}</span>{links}'
         f'<span class="hbtns">{btn}</span>'
         f'<span class="flash" id="flash" role="status" hidden></span></div>'
     )
@@ -248,7 +249,13 @@ def side_head(crumb_html: str = "") -> str:
     return '<div id="side-head"><h1><a href="/">codeview</a></h1>' f"{crumb_html}</div>"
 
 
-def listing(slug: str, parent: str, children: list[tuple[str, str, int]], current: str | None = None) -> str:
+def listing(
+    slug: str,
+    parent: str,
+    children: list[tuple[str, str, int]],
+    current: str | None = None,
+) -> str:
+    """children は (表示名, 種別, 件数かサイズ)。表示名の `/` は、まとめたディレクトリの連なり。"""
     rows = []
     base = f"/{slug}/" + (f"{parent}/" if parent else "")
     for child, kind, size in sorted(
@@ -370,6 +377,17 @@ def _time(ts: int, now: float) -> str:
     return (
         f'<time data-ts="{ts}" title="{datetime.fromtimestamp(ts):%Y-%m-%d %H:%M}">'
         f"{_ago(ts, now)}</time>"
+    )
+
+
+def _stamp(ts: int) -> str:
+    """組み立て時の現在時刻に依らない日付。JavaScript があれば TIME_SCRIPT が相対時刻に言い直す。"""
+    if not ts:
+        return ""
+    when = datetime.fromtimestamp(ts)
+    return (
+        f'<time data-ts="{ts}" title="{when:%Y-%m-%d %H:%M}">'
+        f"{when:%Y-%m-%d}</time>"
     )
 
 
