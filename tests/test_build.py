@@ -731,3 +731,31 @@ def test_build_time_ignores_source_date_epoch(site):
     public, _ = site.build()
     m = re.search(r'<p class="built">built <time data-ts="(\d+)"', (public / "index.html").read_text())
     assert m and int(m.group(1)) >= before
+
+
+FP_PLUGIN = '''
+import os
+from codeview.style import write
+
+
+def fingerprint(ctx):
+    return os.environ.get("FP", "")
+
+
+def build(ctx):
+    write(ctx.public / "fp.html", os.environ.get("FP", ""))
+'''
+
+
+def test_incremental_build_follows_plugin_fingerprint(site):
+    (site.config.parent / "fp.py").write_text(FP_PLUGIN)
+    site.write_config(site.config.read_text() + '\n[plugins]\nmodules = ["fp"]\n')
+    site.env["FP"] = "1"
+    _build_incremental(site)
+    _, err = _build_incremental(site)
+    assert "build skipped" in err
+    # 拡張の指紋が変われば、リポのページを使い回したまま拡張のページを書き直す
+    site.env["FP"] = "2"
+    public, err = _build_incremental(site)
+    assert "build skipped" not in err and "beta: unchanged" in err
+    assert (public / "fp.html").read_text() == "2"

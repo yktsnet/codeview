@@ -166,8 +166,9 @@ def publish(remote: str, branch: str, dry_run: bool, if_changed: bool) -> int:
             return 0
 
     site = _site()
+    # 前回の public/ を残し、入力の変わったリポだけを作り直す。出力は全部を作り直したときと同じになる
     subprocess.run(
-        [sys.executable, "-m", "codeview", "build"],
+        [sys.executable, "-m", "codeview", "build", "--incremental"],
         check=True,
         env={**os.environ, "CODEVIEW_OUT": str(site)},
     )

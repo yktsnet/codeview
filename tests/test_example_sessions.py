@@ -344,7 +344,7 @@ def test_second_build_reuses_unchanged_pages(site, ccreel):
     # 読めた方は読み直さない。読めなかった方は使い回さず、毎回読み直す
     assert _shows(ccreel) == [SESSIONS[1]["id"]]
     assert _page(public, SESSIONS[0]) == first
-    assert "sessions: 2 pages (1 rebuilt)" in proc.stderr
+    assert "sessions: 2 pages (1 rebuilt, 1 fetched)" in proc.stderr
 
 
 def test_updated_session_is_rebuilt(site, ccreel):
@@ -365,13 +365,31 @@ def test_issue_link_follows_issue_state(site, ccreel):
     _use_sessions(site)
     site.build()
     _shows(ccreel)
-    # Issue 01 が消化済みになるとページが消えるので、使い回さずにリンクを外す
+    # Issue 01 が消化済みになるとページが消えるので、使い回さずにリンクを外す。セッションは変わらないので ccreel は呼ばない
     (site.config.parent / "closed").write_text("")
     public, _ = site.build()
-    assert _first() in _shows(ccreel)
+    assert _first() not in _shows(ccreel)
     page = _page(public, SESSIONS[0])
     assert "issues/me/alpha/01.html" not in page
     assert "<span>#1</span>" in page
+
+
+def test_rebuilt_page_reuses_cached_show(site, ccreel):
+    _use_sessions(site)
+    public, _ = site.build()
+    first = (public / "sessions" / f"{_first()}.html").read_text()
+    _shows(ccreel)
+    # 本体や拡張のコードが変わった回と同じく、ページの鍵だけが合わなくなる
+    index_path = _cache(site) / "index.json"
+    index = json.loads(index_path.read_text())
+    for entry in index.values():
+        entry["page"] = "stale"
+    index_path.write_text(json.dumps(index))
+    public, proc = site.build()
+    # 読めた方は保存した出力から作り直す。読めなかった方は今までどおり読み直す
+    assert _first() not in _shows(ccreel)
+    assert (public / "sessions" / f"{_first()}.html").read_text() == first
+    assert "(2 rebuilt, 1 fetched)" in proc.stderr
 
 
 def test_expired_sessions_leave_the_cache(site, ccreel):
@@ -381,6 +399,7 @@ def test_expired_sessions_leave_the_cache(site, ccreel):
     (ccreel / "list.jsonl").write_text(json.dumps(SESSIONS[1]) + "\n")
     public, _ = site.build()
     assert not (_cache(site) / f"{_first()}.html").exists()
+    assert not (_cache(site) / f"{_first()}.json").exists()
     assert not (public / "sessions" / f"{_first()}.html").exists()
     assert _first() not in json.loads((_cache(site) / "index.json").read_text())
 
