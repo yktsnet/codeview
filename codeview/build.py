@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 import sys
+import time
 from importlib import resources
 from pathlib import Path
 from urllib.parse import quote
@@ -511,8 +512,10 @@ def main(argv: list[str] | None = None) -> None:
         counts.setdefault(group, []).append((slug, repo.name, n))
         print(f"  {slug}: {n} files", file=sys.stderr)
 
+    # SOURCE_DATE_EPOCH があればそれを使う。テストが --incremental と全体の作り直しの出力を比べるため
+    built = int(os.environ.get("SOURCE_DATE_EPOCH") or time.time())
     build_index(
-        counts, public, board, plugins.home(ctx), plugins.side(ctx)
+        counts, public, board, plugins.home(ctx), plugins.side(ctx), built
     )
     issues_pages(board, public, github)
     plugins.build(ctx)

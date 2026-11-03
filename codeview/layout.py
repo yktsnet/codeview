@@ -275,8 +275,8 @@ def listing(
     return '<div id="list">' + "".join(rows) + "</div>"
 
 
-def index_side(counts, board, extra: str = "") -> str:
-    """トップページの左メニュー。extra は拡張が足す塊で、先頭に置く。"""
+def index_side(counts, board, extra: str = "", built: int = 0) -> str:
+    """トップページの左メニュー。extra は拡張が足す塊で、先頭に置く。built は生成した時刻の epoch 秒。"""
     blocks = [extra] if extra else []
     rows = "".join(
         f'<a class="item acct" href="/issues/{account}/">'
@@ -293,7 +293,17 @@ def index_side(counts, board, extra: str = "") -> str:
             for slug, name, n in sorted(items, key=lambda it: (-it[2], it[1].lower()))
         )
         blocks.append(f'<h2 class="dhead">{html.escape(group)}</h2>{rows}')
-    return side_head("") + '<div id="list">' + "".join(blocks) + "</div>"
+    return side_head(_built(built)) + '<div id="list">' + "".join(blocks) + "</div>"
+
+
+def _built(ts: int) -> str:
+    if not ts:
+        return ""
+    when = datetime.fromtimestamp(ts)
+    return (
+        f'<p class="built">built <time data-ts="{ts}" title="{when:%Y-%m-%d %H:%M}">'
+        f"{when:%Y-%m-%d %H:%M}</time></p>"
+    )
 
 
 def build_index(
@@ -302,10 +312,14 @@ def build_index(
     board,
     homes: list[str] | None = None,
     side_extra: str = "",
+    built: int = 0,
 ) -> None:
-    """トップページ。homes は拡張が返した右側の HTML。無ければ案内文だけを出す。"""
+    """トップページ。homes は拡張が返した右側の HTML。無ければ案内文だけを出す。
+
+    built は生成した時刻の epoch 秒で、左上に出す。全ページに入れると毎回すべてのページが変わるので、トップだけに置く。
+    """
     from .style import write
-    side = index_side(counts, board, side_extra)
+    side = index_side(counts, board, side_extra, built)
     if not homes:
         total = sum(n for items in counts.values() for _, _, n in items)
         repo_count = sum(len(items) for items in counts.values())
@@ -313,7 +327,10 @@ def build_index(
         main = f'<p class="empty">{stats}<br>Select a repository</p>'
         write(
             out_root / "index.html",
-            page("codeview", side, main, detail=False, path="/index.html"),
+            page(
+                "codeview", side, main, detail=False,
+                extra_script=TIME_SCRIPT, path="/index.html",
+            ),
         )
         return
     # script は main の中ではなく、ほかのページと同じくページ末尾に置く
@@ -327,7 +344,7 @@ def build_index(
             side,
             main,
             detail=False,
-            extra_script=scripts,
+            extra_script=scripts + TIME_SCRIPT,
             home=True,
             path="/index.html",
         ),
