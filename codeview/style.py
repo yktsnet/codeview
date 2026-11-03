@@ -62,6 +62,7 @@ a { color: inherit; text-decoration: none; }
 #side-head { flex: none; padding: 1rem .9rem .75rem; border-bottom: 1px solid var(--line); }
 #side-head h1 { margin: 0 0 .6rem; font: 700 1rem/1.2 var(--font); letter-spacing: .06em; }
 #side-head h1 a:hover { color: var(--accent); }
+#side-head .built { margin: -.3rem 0 0; font: 400 .72rem/1.4 var(--mono); color: var(--faint); }
 #list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .3rem 0 2rem; }
 
 .crumb {

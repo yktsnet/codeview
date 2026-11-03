@@ -709,3 +709,14 @@ def test_incremental_build_matches_full_build(site, tmp_path):
     public, err = _build_incremental(site)
     assert not (public / "gamma").exists()
     assert _tree(public) == _tree(_full_build_elsewhere(site, tmp_path / "3"))
+
+
+def test_index_shows_build_time_only_on_top(site):
+    public, _ = site.build()
+    index = (public / "index.html").read_text()
+    m = re.search(r'<p class="built">built <time data-ts="(\d+)"[^>]*>([^<]+)</time>', index)
+    assert m and m.group(1) == site.env["SOURCE_DATE_EPOCH"]
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}", m.group(2))
+    assert "time[data-ts]" in index
+    assert 'class="built"' not in (public / "alpha" / "index.html").read_text()
+    assert 'class="built"' not in (public / "beta" / "app.py.html").read_text()
