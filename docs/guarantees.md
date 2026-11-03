@@ -40,7 +40,8 @@
 - リポのファイルを描いた Markdown の本文で、リポ内のコピーした画像を指す `![]()` と生の HTML の `<img>` の src は、その画像への相対パスになる。解決の基準と `/` 始まりの扱いはリンクと同じで、ファイルページでも埋め込み README でも同じ先を指す
 - 指す先の画像が無い（HEAD に無い・除外した・5 MiB 超・リポの外）`![]()` と `<img>`、およびリポ外の URL を指すものは、画像にせず `[alt]` の文字にする
 - `--incremental` を付けると、前回の `--incremental` から入力が変わったリポだけを作り直す。出力は、付けずに作り直したものと同じになる。入力には、リポの HEAD・置き場所・アカウント・そのリポのファイルを対象に挙げた Issue・本体と設定のほか、Markdown が GitHub の URL を含むリポでは他のリポの中身と Issue の一覧も含む
-- `--incremental` で、どのリポも Issue も変わっていなければ、何も書かずに終わる。記録は `public/` の外に置く
+- `--incremental` で、リポ・Issue・拡張の `fingerprint()` のどれも変わっていなければ、何も書かずに終わる。記録は `public/` の外に置く
+- `--incremental` で拡張の `fingerprint()` だけが変わったときは、リポのページを使い回し、拡張のページを書き直す
 
 | 保証（要約） | 対応テスト |
 |---|---|
@@ -70,6 +71,7 @@
 | GitHub の URL は、対応するページがあればそこへ向き、無ければ外部 URL のまま残る | `test_github_urls_point_to_generated_pages` |
 | `--incremental` の出力は全体の作り直しと同じ（他のリポの変化・消えたリポを含む） | `test_incremental_build_matches_full_build` |
 | `--incremental` は変化が無ければ何も書かない | `test_incremental_build_skips_when_nothing_changed` |
+| `--incremental` は拡張の `fingerprint()` の変化で拡張のページを書き直す | `test_incremental_build_follows_plugin_fingerprint` |
 | 画像はコピーされ、画像ファイルのページと Markdown 本文（`![]()` と生の `<img>`）に表示される。指す先の無い画像・リポ外の画像は文字になる | `test_images_are_copied_and_shown` |
 | `--incremental` でも画像は全体の作り直しと同じ出力になる | `test_incremental_build_copies_images_like_full_build` |
 | 設定ファイルが無い | `test_missing_config_stops_before_build` |
@@ -127,6 +129,7 @@
 - 走査対象のリポの未コミットの変更は、変更として扱わない
 - `publish --dry-run` は、設定ファイルのあるリポの直下に `public/` と `functions/` を書き、push せずに終わる
 - `publish` は配信ブランチを親を持たない単一コミットとして push し、その木には `public/` と `functions/` だけを載せる
+- `publish` は `build --incremental` で生成する。前回の配信から変わったリポだけを作り直し、変わっていないリポのページは使い回す
 - `publish --if-changed` は、前回の配信から変更が無ければ push せずに終わる。Issue だけの更新でも push しない
 - `check_every_hours` を持つアカウントのリポの変化は、前回そのアカウントを見てから間隔が経つまで見ない。定期実行の起動のずれを見込み、間隔より5分短い時間が経っていれば見て、変化があれば配信する。間隔の無いアカウントの変化は、次の実行で配信する
 - 旧形式の状態ファイルは無いものとして扱い、配信する
@@ -140,6 +143,7 @@
 | 未コミットは無視 | `test_fingerprint_ignores_uncommitted` |
 | `--dry-run` の出力先 | `test_publish_writes_into_the_config_repo` |
 | 単一コミットに生成物だけ | `test_publish_pushes_single_commit_of_assets` |
+| 変わったリポだけ作り直す | `test_publish_rebuilds_only_changed_repos` |
 | `--if-changed` の見送り | `test_publish_if_changed_skips_without_changes` |
 | Issue だけの更新は見送り | `test_publish_if_changed_skips_issue_only_change` |
 | アカウントごとの間隔 | `test_publish_checks_account_at_its_interval` |
@@ -157,6 +161,7 @@
 - `ccreel`・`config_dirs`・`days`・`every_hours` 以外のキーや、型の誤りは `error:` を出して非0で終わる
 - `fingerprint()` は最新の更新時刻を `every_hours` の枠に丸め、枠の中の更新では変わらない
 - 2回目の生成では、中身の変わらないセッションの `show` を呼ばずにページを使い回し、更新されたセッション・Issue の状態が変わったセッションは作り直す。一覧から消えたセッションのキャッシュは消す
+- `show` の出力もキャッシュする。`show` を呼び直すのはセッションが更新されたときだけで、Issue の状態や本体のコードが変わってページだけを作り直すときは、キャッシュした出力を使う
 - 生成したページの `href` / `src` は、本体のページと同じく相対パスで、`public/` 内に実在する先を指す
 
 | 保証（要約） | 対応テスト |
@@ -178,6 +183,7 @@
 | 更新されたセッションは作り直す | `test_updated_session_is_rebuilt` |
 | Issue の状態が変わったら作り直す | `test_issue_link_follows_issue_state` |
 | 一覧から消えたセッションのキャッシュを消す | `test_expired_sessions_leave_the_cache` |
+| ページだけ作り直すときは、キャッシュした `show` の出力を使う | `test_rebuilt_page_reuses_cached_show`、`test_issue_link_follows_issue_state` |
 | リンクは相対パスで、実在するファイルを指す | `test_links_are_relative_and_resolve` |
 
 ## Gaps

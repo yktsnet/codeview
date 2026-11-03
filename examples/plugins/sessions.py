@@ -126,8 +126,11 @@ COPY_SCRIPT = r"""
 </script>
 """
 
-# 本文のページは public/ の外に置いて使い回す。本体は生成のたびに public/ を空にする
+# 本文のページと、その元にした ccreel show の出力を public/ の外に置いて使い回す。本体は生成のたびに public/ を空にする。
+# 時間がかかるのは ccreel を呼ぶところなので、ページを作り直すとき（本体や拡張のコードが変わったときなど）も、
+# セッションが変わっていなければ出力を読み直さない
 CACHE_INDEX = "index.json"
+SHOW_ARGS = ("--json", "--max-chars", "20000", "--max-total", "0")
 
 # 1回の生成のあいだ、side と build と fingerprint で同じ一覧を使う
 _cache: dict[str, list[dict]] = {}
@@ -229,7 +232,7 @@ def _dir_label(ctx, r: dict) -> str | None:
 def _turns(opts: dict, r: dict) -> list[dict] | None:
     sid = r["id"]
     try:
-        out = _ccreel(opts, r["config_dir"], "show", sid, "--json", "--max-chars", "20000", "--max-total", "0")
+        out = _ccreel(opts, r["config_dir"], "show", sid, *SHOW_ARGS)
         return [json.loads(line) for line in out.splitlines() if line.strip()]
     except (OSError, subprocess.SubprocessError, ValueError) as e:
         detail = getattr(e, "stderr", None) or str(e)
@@ -415,25 +418,44 @@ def _code_digest() -> str:
     return h.hexdigest()
 
 
-def _key(r: dict, deps: dict, style: str, code: str) -> str:
-    """本文のページの中身を決めるものを全部入れる。同じ鍵なら同じページになる。"""
-    parts = [r, deps, style, code]
+def _digest(parts) -> str:
     return hashlib.sha256(json.dumps(parts, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
-def _load_index(cache: Path) -> dict:
+def _key(r: dict, deps: dict, style: str, code: str) -> str:
+    """本文のページの中身を決めるものを全部入れる。同じ鍵なら同じページになる。"""
+    return _digest([r, deps, style, code])
+
+
+def _data_key(r: dict) -> str:
+    """ccreel show の出力を決めるもの。一覧の行はセッションが更新されると変わる。"""
+    return _digest([r, SHOW_ARGS])
+
+
+def _load_index(cache: Path) -> dict[str, dict]:
+    """セッションの ID から {"page": ページの鍵, "data": 出力の鍵} への索引。読めない項目は無いものとして扱う。"""
     try:
         data = json.loads((cache / CACHE_INDEX).read_text())
-        return data if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
+    if not isinstance(data, dict):
+        return {}
+    return {k: v for k, v in data.items() if isinstance(v, dict)}
+
+
+def _load_turns(cache: Path, sid: str) -> list[dict] | None:
+    try:
+        turns = json.loads((cache / f"{sid}.json").read_text())
+        return turns if isinstance(turns, list) else None
+    except (OSError, ValueError):
+        return None
 
 
 def _save_cache(cache: Path, index: dict, keep: set[str]) -> None:
     """一覧から消えたセッションの分を消し、索引を書き換える。失敗しても生成は止めない。"""
     try:
-        for f in cache.glob("*.html"):
-            if f.stem not in keep:
+        for f in [*cache.glob("*.html"), *cache.glob("*.json")]:
+            if f.name != CACHE_INDEX and f.stem not in keep:
                 f.unlink()
         tmp = cache / (CACHE_INDEX + ".tmp")
         tmp.write_text(json.dumps({k: v for k, v in index.items() if k in keep}))
@@ -477,17 +499,22 @@ def build(ctx) -> None:
             "slug": _repo_slug(ctx, r["repo"]),
             "label": _dir_label(ctx, r),
         }
-        key = _key(r, deps, style, code)
-        hit = index.get(r["id"]) == key and (cache / f"{r['id']}.html").is_file()
-        plans.append((r, deps, key, hit))
+        entry = index.get(r["id"], {})
+        key, dkey = _key(r, deps, style, code), _data_key(r)
+        hit = entry.get("page") == key and (cache / f"{r['id']}.html").is_file()
+        plans.append((r, deps, key, dkey, hit))
 
-    todo = [p for p in plans if not p[3]]
+    turns_of: dict[str, list[dict] | None] = {}
+    for r, _, _, dkey, hit in plans:
+        if not hit and index.get(r["id"], {}).get("data") == dkey:
+            turns_of[r["id"]] = _load_turns(cache, r["id"])
+    todo = [r for r, *_, hit in plans if not hit and turns_of.get(r["id"]) is None]
     # 1本ずつ ccreel を起動するので、待ち時間を重ねる
     with ThreadPoolExecutor(max_workers=8) as pool:
-        all_turns = list(pool.map(lambda p: _turns(opts, p[0]), todo))
-    fresh = {p[0]["id"]: turns for p, turns in zip(todo, all_turns)}
+        turns_of.update(zip((r["id"] for r in todo), pool.map(lambda r: _turns(opts, r), todo)))
 
-    for r, deps, key, hit in plans:
+    rebuilt = 0
+    for r, deps, key, dkey, hit in plans:
         path = f"/sessions/{r['id']}.html"
         cached = cache / f"{r['id']}.html"
         if hit:
@@ -495,8 +522,10 @@ def build(ctx) -> None:
                 write(ctx.public / path.lstrip("/"), cached.read_text())
                 continue
             except OSError:
-                fresh[r["id"]] = _turns(opts, r)
-        turns = fresh[r["id"]]
+                turns = _load_turns(cache, r["id"])
+                turns_of[r["id"]] = turns if turns is not None else _turns(opts, r)
+        turns = turns_of[r["id"]]
+        rebuilt += 1
         main, script = _session_main(r, deps, turns)
         doc = page(
             f"{r['repo']} {r['title']}",
@@ -511,14 +540,15 @@ def build(ctx) -> None:
         # 読めなかったセッションは使い回さず、次の生成で読み直す
         if turns is not None:
             try:
+                (cache / f"{r['id']}.json").write_text(json.dumps(turns, ensure_ascii=False))
                 cached.write_text(doc)
-                index[r["id"]] = key
+                index[r["id"]] = {"page": key, "data": dkey}
             except OSError:
                 index.pop(r["id"], None)
         else:
             index.pop(r["id"], None)
     _save_cache(cache, index, {r["id"] for r in rows})
-    print(f"sessions: {len(rows)} pages ({len(todo)} rebuilt)", file=sys.stderr)
+    print(f"sessions: {len(rows)} pages ({rebuilt} rebuilt, {len(todo)} fetched)", file=sys.stderr)
 
 
 def fingerprint(ctx) -> str:

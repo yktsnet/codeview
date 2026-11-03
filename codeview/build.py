@@ -454,6 +454,8 @@ def main(argv: list[str] | None = None) -> None:
         "github": _github_digest(github),
         "board": _issues_digest(i for rows in board.issues.values() for i in rows),
         "failed": board.failed,
+        # 拡張のページはリポのページと別に毎回書くが、何も変わっていない回は丸ごと飛ばすので、拡張の変化もここで見る
+        "plugins": plugins.fingerprint(ctx),
         "repos": {},
     }
     # ファイルのページの見出しに出す、対象に挙げた Issue へのリンク
@@ -484,8 +486,8 @@ def main(argv: list[str] | None = None) -> None:
                 and (github_same or not markdown_mentions(repo, "github.com/"))
             ):
                 keep[slug] = old["files"]
-        same = {k: prev.get(k) for k in ("board", "failed")} == {
-            k: state[k] for k in ("board", "failed")
+        same = {k: prev.get(k) for k in ("board", "failed", "plugins")} == {
+            k: state[k] for k in ("board", "failed", "plugins")
         }
         if same and len(keep) == len(slugged) and set(prev.get("repos", {})) == set(state["repos"]):
             print("build skipped: no change since the last build", file=sys.stderr)

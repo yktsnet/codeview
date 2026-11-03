@@ -136,3 +136,13 @@ def test_check_every_hours_must_be_positive_integer(site):
         site.write_config(
             site.config.read_text().replace(f"check_every_hours = {bad}\n", "", 1)
         )
+
+
+def test_publish_rebuilds_only_changed_repos(site, tmp_path):
+    _with_remote(site, tmp_path)
+    site.run("-m", "codeview", "publish", "--if-changed")
+    commit(site.home / "work" / "beta", {"lib.py": "w = 5\n"})
+    proc = site.run("-m", "codeview", "publish", "--if-changed")
+    assert "pushed" in proc.stdout
+    assert "alpha: unchanged" in proc.stderr and "beta: unchanged" not in proc.stderr
+    assert (site.config.parent / "public" / "beta" / "lib.py.html").is_file()
