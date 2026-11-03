@@ -324,6 +324,12 @@ body:not(.lnjs) .hl pre > span[id^="ln-"]:target,
 /* mermaid は図の箱の中に一時の div を作って文字を測る。狭い画面ではその幅で測って
    軸の題が目盛りに重なるので、描いた後の大きさ（既定の 700px）で測らせる */
 .mermaid > div[id^="d"] { width: 700px; }
+/* .markdown-body pre の背景に負けないよう、同じ詳細度以上で指定する */
+.markdown-body pre.mermaid { background: #151617; border-color: var(--line-soft); }
+.mermaid .node rect,
+.mermaid .node polygon,
+.mermaid .node circle,
+.mermaid .node path { filter: drop-shadow(2px 3px 2px rgba(0, 0, 0, .55)); }
 .imgfile {
   display: block;
   max-width: 100%;

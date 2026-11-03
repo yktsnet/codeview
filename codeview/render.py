@@ -467,13 +467,31 @@ def render_markdown(
     toc = "" if safe else _toc(getattr(md, "toc_tokens", []))
     body = f'<div class="markdown-body">{toc}{html_content}</div>'
 
-    # build.py が書き出した同梱の mermaid を読む。通常のスクリプトなので file:// でも動く
+    # build.py が書き出した同梱の mermaid を読む。通常のスクリプトなので file:// でも動く。
+    # ESM でしか配られない layout-elk を IIFE にまとめて同じファイルの末尾につなぎ、
+    # mermaidLayoutElk として公開している。GitHub と同じく、書いた順を保って ELK で配置する
     from codeview import build
 
     script = (
         f'<script src="{build.MERMAID_HREF}"></script>\n'
         """<script>
-mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+mermaid.registerLayoutLoaders(mermaidLayoutElk);
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  layout: 'elk',
+  elk: { considerModelOrder: 'NODES_AND_EDGES', nodePlacementStrategy: 'BRANDES_KOEPF' },
+  themeVariables: {
+    primaryColor: '#222222',
+    primaryBorderColor: '#7a7a7a',
+    mainBkg: '#222222',
+    nodeBorder: '#7a7a7a',
+    primaryTextColor: '#e6e6e6',
+    lineColor: '#bdbdbd',
+    fontSize: '14px'
+  },
+  flowchart: { wrappingWidth: 130, nodeSpacing: 40, rankSpacing: 50, padding: 22 }
+});
 mermaid.run({ nodes: document.querySelectorAll('.mermaid') }).catch(function (e) {
   console.error('Mermaid render error:', e);
 });
