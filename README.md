@@ -50,6 +50,8 @@ codeview build   # ./public/ と ./functions/ を生成
 codeview serve   # http://localhost:8787 で確認する
 ```
 
+`codeview build --incremental` は前回の `--incremental` から入力の変わったリポだけを作り直す。出力は全体を作り直したときと同じで、何も変わっていなければ何も書かない。
+
 サーバーが無くても、`public/index.html` をブラウザで開けばそのまま読める（リンクは相対パス）。拡張が `build()` で書くページのリンクは拡張側の責任で、相対パスにするかどうかは拡張が決める。
 
 手元で見るだけならここまでで足りる。インターネット越しに読むには、下の [Publishing](#publishing) へ進む。
@@ -146,7 +148,7 @@ flowchart TD
 ### 配信する
 
 ```sh
-codeview publish               # build して deploy ブランチへ push する
+codeview publish               # build --incremental して deploy ブランチへ push する
 codeview publish --dry-run     # コミットを作るだけで push しない
 codeview publish --if-changed  # 前回から変化が無ければ何もしない（定期実行向け）
 ```

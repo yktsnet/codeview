@@ -50,6 +50,8 @@ codeview build   # generate ./public/ and ./functions/
 codeview serve   # check it at http://localhost:8787
 ```
 
+`codeview build --incremental` rebuilds only the repositories whose inputs changed since the last `--incremental` run. The output is the same as a full rebuild, and if nothing changed it writes nothing.
+
 No server is needed: open `public/index.html` in a browser and it reads as is (links are relative). Links in pages an extension writes in `build()` are the extension's responsibility.
 
 That is enough to read locally. To read over the internet, continue to [Publishing](#publishing) below.
@@ -146,7 +148,7 @@ flowchart TD
 ### Publish
 
 ```sh
-codeview publish               # build and push to the deploy branch
+codeview publish               # build --incremental and push to the deploy branch
 codeview publish --dry-run     # create the commit without pushing
 codeview publish --if-changed  # do nothing if nothing changed since the last run (for scheduled runs)
 ```
