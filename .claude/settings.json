@@ -4,8 +4,6 @@
       "Bash(git push origin main*)",
       "Bash(git push --force *)",
       "Bash(git push -f *)",
-      "Bash(ssh *)",
-      "Bash(rsync *)",
       "Bash(codeview publish*)",
       "Bash(codeview cf-setup*)",
       "Bash(python -m codeview publish*)",
