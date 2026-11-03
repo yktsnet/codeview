@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 import shutil
 import subprocess
 import sys
@@ -715,8 +716,18 @@ def test_index_shows_build_time_only_on_top(site):
     public, _ = site.build()
     index = (public / "index.html").read_text()
     m = re.search(r'<p class="built">built <time data-ts="(\d+)"[^>]*>([^<]+)</time>', index)
-    assert m and m.group(1) == site.env["SOURCE_DATE_EPOCH"]
+    assert m and m.group(1) == site.env["CODEVIEW_BUILT_AT"]
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}", m.group(2))
     assert "time[data-ts]" in index
     assert 'class="built"' not in (public / "alpha" / "index.html").read_text()
     assert 'class="built"' not in (public / "beta" / "app.py.html").read_text()
+
+
+def test_build_time_ignores_source_date_epoch(site):
+    # nix develop のシェルは SOURCE_DATE_EPOCH に 1980 年の値を入れる
+    site.env.pop("CODEVIEW_BUILT_AT")
+    site.env["SOURCE_DATE_EPOCH"] = "315532800"
+    before = int(time.time())
+    public, _ = site.build()
+    m = re.search(r'<p class="built">built <time data-ts="(\d+)"', (public / "index.html").read_text())
+    assert m and int(m.group(1)) >= before
