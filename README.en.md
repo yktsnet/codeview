@@ -9,7 +9,7 @@ Turns your local git repositories and their GitHub issues into static HTML, and 
 - **Read every repo in one place**: your local repos listed by root, with the code highlighted
 - **All issues in one place too**: open issues from every repo in a single list
 - **Multiple GitHub accounts**: pull issues from separate accounts, such as personal and work, and keep them apart
-- **Light on a phone**: static HTML with no JavaScript, so it opens quickly while you're away
+- **Light on a phone**: static HTML that reads without JavaScript, so it opens quickly while you're away
 - **Extensible**: a single Python module can add your own pages or an issue source. A bundled example shows Claude Code session history ([Extensions](#extensions))
 
 <p>
@@ -49,6 +49,8 @@ groups = ["src"]
 codeview build   # generate ./public/ and ./functions/
 codeview serve   # check it at http://localhost:8787
 ```
+
+`codeview build --incremental` rebuilds only the repositories whose inputs changed since the last `--incremental` run. The output is the same as a full rebuild, and if nothing changed it writes nothing. The record of the last inputs is kept in `.codeview-build.json` next to `public/`.
 
 No server is needed: open `public/index.html` in a browser and it reads as is (links are relative). Links in pages an extension writes in `build()` are the extension's responsibility.
 
@@ -146,7 +148,7 @@ flowchart TD
 ### Publish
 
 ```sh
-codeview publish               # build and push to the deploy branch
+codeview publish               # build --incremental and push to the deploy branch
 codeview publish --dry-run     # create the commit without pushing
 codeview publish --if-changed  # do nothing if nothing changed since the last run (for scheduled runs)
 ```
@@ -176,7 +178,7 @@ Prerequisites:
 ## Scope
 
 - Only each repository's HEAD is read. Uncommitted changes, history, branches, tags and diffs are not shown
-- Files over 512 KiB and binary files are not shown
+- Files over 512 KiB and binary files are not shown, except images up to 5 MiB
 - Only Cloudflare Pages + Access is assumed as the host. The output is static files and can go elsewhere, but `cf-setup` and `_middleware.js` are for Cloudflare
 - Cloudflare Pages allows 20,000 files per deployment. build warns when over it, and `publish` stops without pushing
 - Up to two accounts

@@ -9,7 +9,7 @@
 - **全リポを1か所で読める**: 手元のリポを置き場ごとに並べ、コードをハイライトして読める
 - **Issue も1か所にまとまる**: 全リポの未消化の Issue を1つの一覧にする
 - **GitHub の複数アカウントに対応**: 個人用と仕事用のように、別々のアカウントの Issue を分けて取り込める
-- **スマホで軽い**: JavaScript なしの静的 HTML なので、外出先でもすぐ開ける
+- **スマホで軽い**: JavaScript なしでも読める静的 HTML なので、外出先でもすぐ開ける
 - **拡張でページを足せる**: Python のモジュール1つで、自前のページや Issue の取り込み元を足せる。実例として、Claude Code のセッション履歴を載せる拡張を同梱している（[Extensions](#extensions)）
 
 <p>
@@ -49,6 +49,8 @@ groups = ["src"]
 codeview build   # ./public/ と ./functions/ を生成
 codeview serve   # http://localhost:8787 で確認する
 ```
+
+`codeview build --incremental` は前回の `--incremental` の実行から入力の変わったリポだけを作り直す。出力は全体を作り直したときと同じで、何も変わっていなければ何も書かない。前回の入力の記録は `public/` の隣の `.codeview-build.json` に置く。
 
 サーバーが無くても、`public/index.html` をブラウザで開けばそのまま読める（リンクは相対パス）。拡張が `build()` で書くページのリンクは拡張側の責任で、相対パスにするかどうかは拡張が決める。
 
@@ -146,7 +148,7 @@ flowchart TD
 ### 配信する
 
 ```sh
-codeview publish               # build して deploy ブランチへ push する
+codeview publish               # build --incremental して deploy ブランチへ push する
 codeview publish --dry-run     # コミットを作るだけで push しない
 codeview publish --if-changed  # 前回から変化が無ければ何もしない（定期実行向け）
 ```
@@ -176,7 +178,7 @@ codeview cf-status                          # プロジェクトと直近のデ�
 ## Scope
 
 - 見るのは各リポの HEAD だけ。未コミットの変更・履歴・ブランチ・タグ・差分は出ない
-- 512 KiB を超えるファイルとバイナリは中身を出さない
+- 512 KiB を超えるファイルとバイナリは中身を出さない。画像は 5 MiB まで表示する
 - 配信先は Cloudflare Pages + Access だけを想定する。生成物は静的ファイルなので他にも置けるが、`cf-setup` と `_middleware.js` は Cloudflare 向け
 - Cloudflare Pages の上限は 1 デプロイ 20,000 ファイル。build は超えたら警告し、`publish` は push せずに止まる
 - アカウントは2つまで
