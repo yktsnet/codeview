@@ -210,7 +210,7 @@ def site(tmp_path: Path) -> Site:
         "CODEVIEW_OUT": str(tmp_path / "out"),
         "FAKE_GH_DIR": str(gh_dir),
         "XDG_CACHE_HOME": str(tmp_path / "cache"),
-        "SOURCE_DATE_EPOCH": "1767225600",
+        "CODEVIEW_BUILT_AT": "1767225600",
     }
     s = Site(home=home, config=config, gh_dir=gh_dir, env=env)
     s.set_gh("alpha", [gh_row(3, "alpha の問い", "2026-03-01T00:00:00Z")])

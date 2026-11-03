@@ -19,7 +19,7 @@
 - 読み込めない拡張を設定したときは、そのモジュール名を出して非0で終わり、`public/` を作らない
 - `functions/_middleware.js` は、ホストが `*.pages.dev` のリクエストに 404 を返す
 - ファイルのページは、ヘッダに行数と（ハイライトできれば）言語を出し、本文側にトップからのパンくずを置き、同じディレクトリの前後のファイル（左の一覧と同じ並び）へのリンクを出す。ファイルが1つのディレクトリでは前後を出さない
-- トップの左上に、生成した時刻（`SOURCE_DATE_EPOCH` があればその値）を `built <time data-ts>` で出す。JavaScript が無いときに読める文字は `YYYY-MM-DD HH:MM` で、JavaScript があれば相対時刻に書き換える。トップ以外のページには出さない
+- トップの左上に生成した時刻（`CODEVIEW_BUILT_AT` があればその値。`SOURCE_DATE_EPOCH` は使わない）を `built <time data-ts>` で出す。JavaScript が無いときに読める文字は `YYYY-MM-DD HH:MM` で、JavaScript があれば相対時刻に書き換える。トップ以外のページには出さない
 - ファイルのページのヘッダには、「行数 · サイズ」に続けて、そのファイルに触れた最後のコミットの日時を出す。静的に書く日付は生成時の現在時刻に左右されない。`<time>` の `data-ts` に epoch 秒を入れ、JavaScript があれば相対時刻に書き換える。左の一覧とディレクトリのページには日付を出さない
 - 左の一覧で、中身がディレクトリ1つだけのディレクトリは、その子のディレクトリと連ねて `a/b/c` の1行にまとめる。連なりは、中身がディレクトリ1つだけでなくなるところで止まる。その行は連なりの最も深いディレクトリのページへリンクし、件数はそのディレクトリの下のファイル数である。まとめた途中のディレクトリ（`a/`、`a/b/`）のページも書き、パンくずはそこへリンクする
 - Markdown のページは、見出し（h1〜h3、表題1つの h1 を除く）が4つ以上あれば、先頭に畳める目次を出す
@@ -57,6 +57,7 @@
 | 拡張なしの出力 | `test_no_plugins_means_plain_top` |
 | ファイルページの行数・言語・パンくず・前後のリンク | `test_file_page_navigation` |
 | トップの左上に生成した時刻を出し、ほかのページには出さない | `test_index_shows_build_time_only_on_top` |
+| 生成した時刻を `SOURCE_DATE_EPOCH` から決めない | `test_build_time_ignores_source_date_epoch` |
 | ファイルのページのヘッダに、そのファイルに触れた最後のコミットの日時を出し、左の一覧には出さない | `test_file_header_shows_last_modified_not_in_listing` |
 | 左の一覧で、中身がディレクトリ1つだけのディレクトリの連なりを1行にまとめる。途中のディレクトリのページも書き、パンくずはそこへリンクする | `test_dir_only_chains_collapse_into_one_row` |
 | 長い Markdown の目次 | `test_long_markdown_gets_toc` |

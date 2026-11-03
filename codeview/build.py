@@ -512,8 +512,9 @@ def main(argv: list[str] | None = None) -> None:
         counts.setdefault(group, []).append((slug, repo.name, n))
         print(f"  {slug}: {n} files", file=sys.stderr)
 
-    # SOURCE_DATE_EPOCH があればそれを使う。テストが --incremental と全体の作り直しの出力を比べるため
-    built = int(os.environ.get("SOURCE_DATE_EPOCH") or time.time())
+    # CODEVIEW_BUILT_AT があればそれを使う。テストが --incremental と全体の作り直しの出力を比べるため。
+    # SOURCE_DATE_EPOCH は使わない。nix develop のシェルが 1980 年の値を入れてくる
+    built = int(os.environ.get("CODEVIEW_BUILT_AT") or time.time())
     build_index(
         counts, public, board, plugins.home(ctx), plugins.side(ctx), built
     )
