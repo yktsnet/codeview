@@ -82,7 +82,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
 
-    # 既存プロジェクトにも効かせる（作成時の指定は再実行では通らない）
+    # 既存プロジェクトにも適用する（作成時の指定は再実行では通らない）
     step(
         "disable preview",
         api(
