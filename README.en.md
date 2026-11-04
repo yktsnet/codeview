@@ -134,15 +134,15 @@ The generated files contain the code of every repository. **Keep the repository 
 ```mermaid
 flowchart TD
   subgraph local["Local machine"]
-    repos["Scanned repositories"] --> build["codeview publish<br/>(build)"]
+    repos["📚 Scanned repositories"] --> build["🔨 codeview publish<br/>(build)"]
   end
-  build -- "force push<br/>single parentless commit" --> deploy["Publishing repository (private)<br/>deploy branch"]
+  build -- "force push<br/>single parentless commit" --> deploy["📦 Publishing repository (private)<br/>deploy branch"]
   subgraph cf["Cloudflare"]
-    pages["Pages"] --> access["Access<br/>(only your email allowed)"]
-    pages --> dev["*.pages.dev<br/>404 by _middleware.js"]
+    pages["☁️ Pages"] --> access["🔐 Access<br/>(only your email allowed)"]
+    pages --> dev["🚫 *.pages.dev<br/>404 by _middleware.js"]
   end
   deploy -- "GitHub integration" --> pages
-  access --> phone["Browser"]
+  access --> phone["📱 Browser"]
 ```
 
 ### Publish

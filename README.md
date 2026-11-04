@@ -134,15 +134,15 @@ days = 14   # 載せる期間（既定 30）
 ```mermaid
 flowchart TD
   subgraph local["手元"]
-    repos["走査対象のリポ群"] --> build["codeview publish<br/>(build)"]
+    repos["📚 走査対象のリポ群"] --> build["🔨 codeview publish<br/>(build)"]
   end
-  build -- "force push<br/>親の無い単一コミット" --> deploy["配信するリポ (private)<br/>deploy ブランチ"]
+  build -- "force push<br/>親の無い単一コミット" --> deploy["📦 配信するリポ (private)<br/>deploy ブランチ"]
   subgraph cf["Cloudflare"]
-    pages["Pages"] --> access["Access<br/>(本人のメールだけ許可)"]
-    pages --> dev["*.pages.dev<br/>_middleware.js が 404"]
+    pages["☁️ Pages"] --> access["🔐 Access<br/>(本人のメールだけ許可)"]
+    pages --> dev["🚫 *.pages.dev<br/>_middleware.js が 404"]
   end
   deploy -- "GitHub 連携" --> pages
-  access --> phone["ブラウザ"]
+  access --> phone["📱 ブラウザ"]
 ```
 
 ### 配信する
