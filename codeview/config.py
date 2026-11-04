@@ -44,7 +44,7 @@ class Account:
 
 @dataclass(frozen=True)
 class RepoScan:
-    """`[scan.repos."<slug>"]` の追加分。全体の `[scan]` の値に足して効く。"""
+    """`[scan.repos."<slug>"]` の追加分。全体の `[scan]` の値に足して適用される。"""
 
     skip_exts: tuple[str, ...] = ()
     exclude_prefixes: tuple[str, ...] = ()

@@ -71,12 +71,12 @@ def test_repo_scan_adds_to_global_for_that_repo_only(site):
     _repo_scan_site(site)
     public, _ = site.build()
     alpha, beta = public / "alpha", public / "beta"
-    # リポ単位の除外は、そのリポだけに効く（拡張子は大小を無視する）
+    # リポ単位の除外は、そのリポだけに適用される（拡張子は大小を無視する）
     assert not (alpha / "main.py.html").exists()
     assert not (alpha / "docs").exists()
     assert (beta / "main.py.html").is_file()
     assert (beta / "docs" / "guide.md.html").is_file()
-    # 全体の除外は足したあとも効く
+    # 全体の除外は足したあとも残る
     assert not (alpha / "logo.png.html").exists()
     assert not (beta / "logo.png.html").exists()
     assert (alpha / "README.md.html").is_file()
