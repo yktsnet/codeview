@@ -90,12 +90,12 @@ def _head(path: Path) -> str:
 
 
 def _fingerprint(ctx: plugins.Context) -> dict:
-    """配信の指紋。`accounts` はアカウントごとの走査対象リポの HEAD、`global` はそれ以外
+    """配信のハッシュ。`accounts` はアカウントごとの走査対象リポの HEAD、`global` はそれ以外
     （拡張の行・配信するリポの HEAD・本体の版）。
 
     GitHub の Issue は見ない。Issue だけの動きでは配信せず、次にコミットで配信するときに載る。
-    配信するリポの未コミット変更も指紋に出ない。定期実行が拾うのはコミット済みの状態だけで、
-    手元の実験を配信させないため。手動 publish は指紋を見ないので確認はそちらで足りる。
+    配信するリポの未コミット変更もハッシュに出ない。定期実行が拾うのはコミット済みの状態だけで、
+    手元の実験を配信させないため。手動 publish はハッシュを見ないので確認はそちらで足りる。
     """
     accounts: dict[str, list[str]] = {}
     for group, path in repos():
@@ -116,7 +116,7 @@ def _load_state() -> dict | None:
         state = json.loads(STATE.read_text())
     except (OSError, ValueError):
         return None
-    # 指紋だけを書いていた旧形式は、状態なしとして一度配信し直す
+    # ハッシュだけを書いていた旧形式は、状態なしとして一度配信し直す
     if not isinstance(state, dict) or not isinstance(state.get("accounts"), dict):
         return None
     return state

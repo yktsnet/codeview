@@ -1,4 +1,4 @@
-"""配信の指紋が走査対象の HEAD で変わり、GitHub の Issue では変わらないことと、
+"""配信のハッシュが走査対象の HEAD で変わり、GitHub の Issue では変わらないことと、
 アカウントごとの間隔で変化を見ることを確かめる。"""
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ def test_fingerprint_ignores_github_issue_update(site):
     before = site.fingerprint()
     site.set_gh("beta", [gh_row(7, "beta の問い", "2026-03-01T00:00:00Z")])
     assert site.fingerprint() == before
-    # 指紋を取るだけでは GitHub に問い合わせない
+    # ハッシュを取るだけでは GitHub に問い合わせない
     assert site.gh_calls() == []
 
 
@@ -113,7 +113,7 @@ def test_publish_checks_account_at_its_interval(site, tmp_path):
 
 
 def test_publish_if_changed_republishes_over_old_state(site, tmp_path):
-    # 指紋だけを書いていた旧形式の状態は、無いものとして配信する
+    # ハッシュだけを書いていた旧形式の状態は、無いものとして配信する
     remote = _with_remote(site, tmp_path)
     path = _state(site, tmp_path)
     path.parent.mkdir(parents=True)

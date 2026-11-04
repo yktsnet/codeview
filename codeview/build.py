@@ -364,7 +364,7 @@ def _digest(obj) -> str:
 
 
 def _code_digest() -> str:
-    """本体のソースと同梱物の指紋。版の番号は開発中に動かないので、中身で見る。"""
+    """本体のソースと同梱物のハッシュ。版の番号は開発中に動かないので、中身で見る。"""
     root = Path(__file__).resolve().parent
     h = hashlib.sha256()
     for path in sorted(root.rglob("*")):

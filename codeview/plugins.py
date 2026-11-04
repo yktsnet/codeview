@@ -6,8 +6,8 @@
     side(ctx) -> str             トップの左メニューの先頭に差し込む塊
     home(ctx) -> str | None      トップの右側に出す HTML。None なら出さない
     build(ctx) -> None           public/ と functions/ に自前のページを書く
-    before_publish(ctx) -> None  配信の指紋を取る前に呼ぶ
-    fingerprint(ctx) -> str      配信の指紋に足す1行
+    before_publish(ctx) -> None  配信のハッシュを取る前に呼ぶ
+    fingerprint(ctx) -> str      配信のハッシュに足す1行
     issues(ctx, account, repos) -> list[Issue]
                                  アカウントの `issues` にこのモジュールを挙げたとき、
                                  そのアカウントのリポ（`Repo` の列）から未消化の Issue を返す
