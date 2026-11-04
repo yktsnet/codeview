@@ -14,7 +14,7 @@ ccreel (https://github.com/yktsnet/ccreel) が要る。`list --json` と `show -
     ccreel       ccreel のコマンド（既定 "ccreel"）。定期実行の PATH に無いときはパスで渡す
     config_dirs  読む config dir の列（既定 ["~/.claude"]）
     days         載せる期間。この日数のうちに更新されたもの（既定 30）
-    every_hours  配信の指紋を変える間隔（既定 3）
+    every_hours  配信のハッシュを変える間隔（既定 3）
 """
 
 from __future__ import annotations
@@ -407,7 +407,7 @@ def _cache_dir() -> Path:
 
 
 def _code_digest() -> str:
-    """この拡張と本体のソースの指紋。どちらかが変われば、作ったページを全部作り直す。"""
+    """この拡張と本体のソースのハッシュ。どちらかが変われば、作ったページを全部作り直す。"""
     import codeview
 
     h = hashlib.sha256(Path(__file__).read_bytes())

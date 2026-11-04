@@ -754,7 +754,7 @@ def test_incremental_build_follows_plugin_fingerprint(site):
     _build_incremental(site)
     _, err = _build_incremental(site)
     assert "build skipped" in err
-    # 拡張の指紋が変われば、リポのページを使い回したまま拡張のページを書き直す
+    # 拡張のハッシュが変われば、リポのページを使い回したまま拡張のページを書き直す
     site.env["FP"] = "2"
     public, err = _build_incremental(site)
     assert "build skipped" not in err and "beta: unchanged" in err

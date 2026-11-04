@@ -125,7 +125,7 @@
 
 - 走査対象に動きが無ければ、変更なしと判定する
 - 走査対象のリポに新しいコミットがあれば、変更ありと判定する
-- GitHub の Issue だけが更新されても、変更なしと判定する。指紋を取るときに GitHub へ問い合わせない
+- GitHub の Issue だけが更新されても、変更なしと判定する。ハッシュを取るときに GitHub へ問い合わせない
 - 走査対象のリポの未コミットの変更は、変更として扱わない
 - `publish --dry-run` は、設定ファイルのあるリポの直下に `public/` と `functions/` を書き、push せずに終わる
 - `publish` は配信ブランチを親を持たない単一コミットとして push し、その木には `public/` と `functions/` だけを載せる
@@ -178,7 +178,7 @@
 | `list` が成功して0件のときは止めない | `test_build_with_empty_list_is_not_an_error` |
 | トップの入口と件数 | `test_top_menu_links_sessions_without_titles` |
 | 設定の誤り | `test_rejects_bad_options` |
-| 指紋は最新の更新時刻を `every_hours` の枠に丸めて動く | `test_fingerprint_moves_only_across_windows`、`test_fingerprint_follows_every_hours` |
+| ハッシュは最新の更新時刻を `every_hours` の枠に丸めて動く | `test_fingerprint_moves_only_across_windows`、`test_fingerprint_follows_every_hours` |
 | 変わらないセッションはページを使い回す（件数を左に出さないのは、セッションが1本増えても、ほかのページの内容が変わらないようにするため） | `test_second_build_reuses_unchanged_pages`、`test_session_page_side_has_no_counts` |
 | 更新されたセッションは作り直す | `test_updated_session_is_rebuilt` |
 | Issue の状態が変わったら作り直す | `test_issue_link_follows_issue_state` |
