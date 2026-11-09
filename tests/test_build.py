@@ -169,6 +169,54 @@ def test_file_page_navigation(site):
     assert 'class="pager"' not in (public / "alpha" / "docs" / "guide.md.html").read_text()
 
 
+
+class _Frames(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.frames = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "iframe":
+            self.frames.append(dict(attrs))
+
+
+def _frames(text):
+    parser = _Frames()
+    parser.feed(text)
+    return parser.frames
+
+
+HTML_DOC = (
+    '<!doctype html><html><body><h1 class="t">A &amp; "B"</h1>\n'
+    "<script>document.title = 'x' + \"y\";</script>\n</body></html>\n"
+)
+
+
+def test_html_file_page_renders_in_sandboxed_iframe(site):
+    alpha = site.home / "own" / "alpha"
+    big = "<p>" + "x" * (512 * 1024) + "</p>\n"
+    commit(
+        alpha,
+        {"doc.html": HTML_DOC, "old.htm": HTML_DOC, "big.html": big, "pic.svg": "<svg/>\n"},
+    )
+    public, _ = site.build()
+    out = public / "alpha"
+    for name in ("doc.html", "old.htm"):
+        page = (out / f"{name}.html").read_text()
+        [frame] = _frames(page)
+        # HTMLParser が属性の実体参照を戻すので、元の中身と比べられる
+        assert frame["srcdoc"] == HTML_DOC, name
+        tokens = frame["sandbox"].split()
+        assert "allow-scripts" in tokens and "allow-same-origin" not in tokens
+        # ソースも JavaScript なしで読める形で同じページにある
+        assert "<details" in page and 'class="hl"' in page
+        assert "3 lines · HTML · " in page
+        assert 'id="copy-body"' in page
+    big_page = (out / "big.html.html").read_text()
+    assert "Too large to display" in big_page and "<iframe" not in big_page
+    svg_page = (out / "pic.svg.html").read_text()
+    assert "<iframe" not in svg_page and 'class="hl"' in svg_page
+
 def _commit_at(repo, files, when):
     """コミッタの日時を固定してコミットする。"""
     for name, body in files.items():

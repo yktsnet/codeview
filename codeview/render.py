@@ -77,6 +77,27 @@ def render_code_lang(path: str, data: bytes) -> tuple[str, str | None]:
     return out.replace("\n</span>", "</span>"), lang
 
 
+def is_html(path: str) -> bool:
+    return path.lower().endswith((".html", ".htm"))
+
+
+def render_html_page(path: str, data: bytes) -> tuple[str, str | None]:
+    """描画した HTML の iframe と、折りたたんだソースを返す。
+
+    allow-same-origin を付けないので、中のスクリプトは origin が不透明になり、
+    codeview の Cookie や親ページに触れない。
+    """
+    text = data.decode("utf-8", "replace")
+    code, lang = render_code_lang(path, data)
+    body = (
+        '<iframe class="htmlview" sandbox="allow-scripts" '
+        f'title="{html.escape(path.split("/")[-1], quote=True)}" '
+        f'srcdoc="{html.escape(text, quote=True)}"></iframe>'
+        f'<details class="htmlsrc"><summary>Source</summary>{code}</details>'
+    )
+    return body, lang
+
+
 # リンクに残してよいスキーム。javascript: や data: は外す
 _LINK_SCHEMES = {"", "http", "https", "mailto"}
 

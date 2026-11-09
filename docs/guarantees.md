@@ -37,6 +37,7 @@
 - 対応するページが無い GitHub の URL（別の ref・HEAD に無いパス・取り込んでいない Issue・別のアカウントの Issue・Pull Request など）は、外部 URL のまま残す
 - 対象の拡張子（`.png` `.jpg` `.jpeg` `.gif` `.webp` `.ico` `.svg`）の画像のうち、除外していない 5 MiB 以下のものは、`public/<slug>/<リポ内パス>` にそのままコピーする。除外した画像と 5 MiB を超える画像はコピーしない
 - 画像ファイルのページは、その画像を `<img>` で表示する（5 MiB を超えるときは `Too large to display`）。`.svg` のページはコードとして描く
+- `.html` と `.htm` のファイルページは、ファイルの中身をそのまま `srcdoc` に入れた `<iframe>` を本文に出す。iframe の `sandbox` 属性は `allow-scripts` を含み、`allow-same-origin` を含まない。同じページで、ハイライトしたソースも JavaScript なしで（`<details>` で）読める。ヘッダのメタ情報と Copy file はほかのコードのページと同じで、Copy file が写すのはソースである。512 KiB を超えるものとバイナリは iframe を出さず、`Too large to display` / `Binary` を出す
 - リポのファイルを描いた Markdown の本文で、リポ内のコピーした画像を指す `![]()` と生の HTML の `<img>` の src は、その画像への相対パスになる。解決の基準と `/` 始まりの扱いはリンクと同じで、ファイルページでも埋め込み README でも同じ先を指す
 - 指す先の画像が無い（HEAD に無い・除外した・5 MiB 超・リポの外）`![]()` と `<img>`、およびリポ外の URL を指すものは、画像にせず `[alt]` の文字にする
 - `--incremental` を付けると、前回の `--incremental` から入力が変わったリポだけを作り直す。出力は、付けずに作り直したものと同じになる。入力には、リポの HEAD・置き場所・アカウント・そのリポのファイルを対象に挙げた Issue・本体と設定のほか、Markdown が GitHub の URL を含むリポでは他のリポの中身と Issue の一覧も含む
@@ -74,6 +75,7 @@
 | `--incremental` は拡張の `fingerprint()` の変化で拡張のページを書き直す | `test_incremental_build_follows_plugin_fingerprint` |
 | 画像はコピーされ、画像ファイルのページと Markdown 本文（`![]()` と生の `<img>`）に表示される。指す先の無い画像・リポ外の画像は文字になる | `test_images_are_copied_and_shown` |
 | `--incremental` でも画像は全体の作り直しと同じ出力になる | `test_incremental_build_copies_images_like_full_build` |
+| `.html` / `.htm` は sandbox 付きの iframe で描き、ソースも出す。大きすぎるものと `.svg` には iframe を出さない | `test_html_file_page_renders_in_sandboxed_iframe` |
 | 設定ファイルが無い | `test_missing_config_stops_before_build` |
 | 設定の書式誤り | `test_broken_config_stops_before_build` |
 | 読み込めない拡張 | `test_unknown_plugin_stops_before_build` |
