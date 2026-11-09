@@ -1,7 +1,7 @@
 ## HTML ファイルを描画して見せる
 id: 10
 branch-slug: render-html-files
-status: open
+status: close
 type: feat
 対象: codeview/build.py（`file_body` の分岐）, codeview/render.py, codeview/style.py（iframe とソース切り替えの見た目）, tests/test_build.py, docs/guarantees.md（§1 の箇条と表）, README.md・README.en.md（機能の説明に1行）
 目的: リポに置いた `.html` の資料（提案資料・レポートなど）を、clone してブラウザで開かずに codeview の中で読めるようにする。いまは `.html` もハイライトしたソースとして出るので、GitHub と同じく中身を見るには手元で開くしかない。
