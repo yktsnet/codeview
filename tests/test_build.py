@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import os
 import re
 import time
@@ -199,6 +200,9 @@ def test_html_file_page_renders_in_sandboxed_iframe(site):
         alpha,
         {"doc.html": HTML_DOC, "old.htm": HTML_DOC, "big.html": big, "pic.svg": "<svg/>\n"},
     )
+    (alpha / "bin.html").write_bytes(b"<p>\0</p>\n")
+    git(alpha, "add", "-A")
+    git(alpha, "commit", "-qm", "binary html")
     public, _ = site.build()
     out = public / "alpha"
     for name in ("doc.html", "old.htm"):
@@ -212,8 +216,15 @@ def test_html_file_page_renders_in_sandboxed_iframe(site):
         assert "<details" in page and 'class="hl"' in page
         assert "3 lines · HTML · " in page
         assert 'id="copy-body"' in page
+        # Copy file はソースの行を写すので、<details> の中の行から行番号を除けば元の中身になる
+        src = page.split('<details class="htmlsrc">', 1)[1].split("</details>", 1)[0]
+        lines = re.findall(r'<span id="ln-\d+">(.*?)</span>(?=<span id="ln-|</pre>)', src, re.S)
+        text = [html.unescape(re.sub(r"<[^>]+>", "", re.sub(r'<span class="linenos">.*?</span>', "", ln))) for ln in lines]
+        assert "\n".join(text) + "\n" == HTML_DOC
     big_page = (out / "big.html.html").read_text()
     assert "Too large to display" in big_page and "<iframe" not in big_page
+    bin_page = (out / "bin.html.html").read_text()
+    assert "Binary" in bin_page and "<iframe" not in bin_page
     svg_page = (out / "pic.svg.html").read_text()
     assert "<iframe" not in svg_page and 'class="hl"' in svg_page
 
