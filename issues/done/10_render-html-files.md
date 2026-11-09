@@ -1,3 +1,44 @@
+## PR記録: feat: Render HTML files in a sandboxed iframe
+issue: 10 (10_render-html-files.md)
+PR: https://github.com/yktsnet/codeview/pull/42
+
+## 変更内容
+`.html` と `.htm` のファイルページでは、描画した結果を sandbox 付きの iframe（`srcdoc`）で本文に出し、ハイライトしたソースを同じページの `<details>` に置く。sandbox は `allow-scripts` だけで、`allow-same-origin` は付けない。iframe の高さは画面の 80% に固定し、中でスクロールする。メタ情報と Copy file（写すのはソース）はコードのページと同じ。`MAX_BYTES` 超とバイナリの扱いは変えない。README（日本語・英語）と保証台帳 §1 を更新した。
+
+UTF-8 でない HTML は文字化けする（コード表示と同じ読み方）。user と相談して今回は見送った。
+
+## 保証
+- `.html` / `.htm` を srcdoc の iframe で出し、sandbox は allow-scripts を含み allow-same-origin を含まない → `tests/test_build.py::test_html_file_page_renders_in_sandboxed_iframe`
+- ソースを `<details>` で同じページに出し、Copy file はそのソースを写す → 同上
+- メタ情報 → 同上
+- MAX_BYTES 超・バイナリは iframe を出さない → 同上
+- 維持: `.svg` のコード表示（同上・`test_images_are_copied_and_shown`）、ナビゲーション（`test_file_page_navigation`）、`--incremental`（`test_incremental_build_matches_full_build`）
+
+## 静的確認結果
+- `nix develop -c pytest -q`: 89 passed
+- 変更ファイル: README.en.md / README.md / codeview/build.py / codeview/render.py / codeview/style.py / docs/guarantees.md / tests/test_build.py
+
+## 確認者の判定
+| # | 項目 | 判定 |
+|---|---|---|
+| 1 | pytest が通る | 合 |
+| 2 | `.html` の iframe・srcdoc・sandbox・ソース | 合 |
+| 3 | `.htm` も同じ | 合 |
+| 4 | MAX_BYTES 超は iframe なしで Too large | 合 |
+| 5 | `.svg` に iframe が無い | 合 |
+| 6 | `--incremental` の既存テストが通る | 合 |
+| 7 | 台帳 §1 に箇条と表の行がある | 合 |
+| 8 | README の両方に1行ある | 合 |
+
+保証（Copy file の中身・バイナリを含む）もすべて合。
+
+## 手戻り
+| 何が起きたか | 失ったもの | 原因の分類 | 仕組みで防げたか |
+|---|---|---|---|
+| 確認者が「否」を出した。Copy file が写す中身と、バイナリの `.html` に iframe を出さないことをテストで固定していなかったので、テストを足した | 1回。約5分 | 実装者の不注意 | 防げない |
+
+---
+
 ## HTML ファイルを描画して見せる
 id: 10
 branch-slug: render-html-files
