@@ -39,10 +39,12 @@ from codeview.render import (
     GitHubRepo,
     LinkContext,
     human,
+    is_html,
     is_image,
     is_text,
     line_count,
     render_code_lang,
+    render_html_page,
     render_markdown,
 )
 from codeview.repo import (
@@ -248,7 +250,8 @@ def build_repo(
             )
             meta.insert(0, _lines(data))
         else:
-            body, lang = render_code_lang(path, data)
+            render = render_html_page if is_html(path) else render_code_lang
+            body, lang = render(path, data)
             copy_body = True
             width = "w-code"
             meta[:0] = [_lines(data)] + ([lang] if lang else [])

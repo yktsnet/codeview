@@ -212,6 +212,17 @@ body:not(.lnjs) .hl pre > span[id^="ln-"]:target,
 .nowrap .hl pre > span[id^="ln-"] { width: max-content; min-width: 100%; }
 .nowrap .hl pre > span.hit { min-width: calc(100% + 2rem); }
 
+/* ---------- html ---------- */
+/* 中身の高さは sandbox の外から測れないので、画面に対する固定の高さにして中で送る */
+.htmlview {
+  display: block; width: 100%; height: 80vh; margin: 1em 0;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: #fff;
+}
+.htmlsrc > summary {
+  cursor: pointer; color: var(--mute); padding: .3rem 0;
+}
+.htmlsrc > summary:hover { color: var(--fg); }
+
 /* ---------- markdown & mermaid ---------- */
 .markdown-body {
   font-family: var(--font);

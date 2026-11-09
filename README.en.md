@@ -7,6 +7,7 @@
 Turns your local git repositories and their GitHub issues into static HTML, and serves them through Cloudflare Pages + Access as a code browser only you can read.
 
 - **Read every repo in one place**: your local repos listed by root, with the code highlighted
+- **HTML documents render in place**: a `.html` file in a repo is shown rendered, with its source on the same page. Its scripts run in a sandbox, cut off from codeview
 - **All issues in one place too**: open issues from every repo in a single list
 - **Multiple GitHub accounts**: pull issues from separate accounts, such as personal and work, and keep them apart
 - **Light on a phone**: static HTML that reads without JavaScript, so it opens quickly while you're away
