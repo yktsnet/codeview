@@ -184,7 +184,7 @@ codeview cf-status                          # プロジェクトと直近のデ�
 - Cloudflare Pages の上限は 1 デプロイ 20,000 ファイル。build は超えたら警告し、`publish` は push せずに止まる
 - アカウントは2つまで
 
-外から見える振る舞いのうち、テストで固定しているものは [保証台帳](docs/guarantees.md) にある。
+外から見える振る舞いのうち、テストで固定しているものは [保証台帳](docs/guarantees/README.md) にある。
 
 ## Design Decisions
 
