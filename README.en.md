@@ -184,7 +184,7 @@ Prerequisites:
 - Cloudflare Pages allows 20,000 files per deployment. build warns when over it, and `publish` stops without pushing
 - Up to two accounts
 
-The externally visible behavior pinned by tests is listed in the [guarantee ledger](docs/guarantees.md) (Japanese).
+The externally visible behavior pinned by tests is listed in the [guarantee ledger](docs/guarantees/README.md) (Japanese).
 
 ## Design Decisions
 
