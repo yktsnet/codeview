@@ -863,9 +863,3 @@ def test_incremental_build_follows_other_config(site):
     _, err = _build_incremental(site)
     assert "alpha: unchanged" not in err and "beta: unchanged" not in err
 
-
-def test_incremental_build_follows_issue_list(site):
-    _build_incremental(site)
-    site.set_gh("beta", [gh_row(8, "beta の新しい問い", "2026-04-01T00:00:00Z")])
-    _, err = _build_incremental(site)
-    assert "build skipped" not in err

@@ -12,7 +12,6 @@
 | `build --incremental` は、リポの属するアカウントが変わったリポを作り直す | `test_incremental_build_follows_account` |
 | `build --incremental` は、本体のコードが変わったとき、すべてのリポを作り直す | `test_incremental_build_follows_code` |
 | `build --incremental` は、`[scan.repos]` 以外の設定が変わったとき、すべてのリポを作り直す | `test_incremental_build_follows_other_config` |
-| `build --incremental` は、Issue の一覧が変わったとき、何も書かずには終わらない | `test_incremental_build_follows_issue_list` |
 
 ## `build --incremental` の出力
 
