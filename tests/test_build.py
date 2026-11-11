@@ -13,7 +13,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote
 
-from conftest import commit, git
+from conftest import commit, gh_row, git
 
 
 def test_scans_children_and_skips(site):
@@ -142,6 +142,13 @@ def test_readme_on_directory_page(site):
     assert 'class="readme"' in docs
     assert '<a href="guide.md.html">guide.md</a>' in docs
     assert "Select a file" not in docs
+
+
+def test_guide_on_directory_page_without_files(site):
+    commit(site.home / "own" / "alpha", {"pkg/sub/x.py": "x = 1\n"})
+    public, _ = site.build()
+    page = (public / "alpha" / "pkg" / "index.html").read_text()
+    assert "Select a file" in page
 
 
 def test_no_plugins_means_plain_top(site):
@@ -818,3 +825,47 @@ def test_incremental_build_follows_plugin_fingerprint(site):
     public, err = _build_incremental(site)
     assert "build skipped" not in err and "beta: unchanged" in err
     assert (public / "fp.html").read_text() == "2"
+
+
+def test_incremental_build_follows_repo_location(site, tmp_path):
+    site.write_config(site.config.read_text().replace(f'children = "{site.home}/own"', 'children = "~/own"'))
+    _build_incremental(site)
+    moved = tmp_path / "moved"
+    moved.mkdir()
+    shutil.copytree(site.home / "own", moved / "own", symlinks=True)
+    site.env["HOME"] = str(moved)
+    _, err = _build_incremental(site)
+    assert "alpha: unchanged" not in err and "beta: unchanged" in err
+
+
+def test_incremental_build_follows_account(site):
+    _build_incremental(site)
+    git(site.home / "own" / "alpha", "remote", "set-url", "origin", "github-work:org/alpha.git")
+    _, err = _build_incremental(site)
+    assert "alpha: unchanged" not in err and "beta: unchanged" in err
+
+
+def test_incremental_build_follows_code(site, tmp_path):
+    root = tmp_path / "code"
+    shutil.copytree(Path(site.env["PYTHONPATH"]) / "codeview", root / "codeview",
+                    ignore=shutil.ignore_patterns("__pycache__"))
+    site.env["PYTHONPATH"] = str(root)
+    _build_incremental(site)
+    with open(root / "codeview" / "layout.py", "a") as f:
+        f.write("\n# changed\n")
+    _, err = _build_incremental(site)
+    assert "build skipped" not in err
+
+
+def test_incremental_build_follows_other_config(site):
+    _build_incremental(site)
+    site.write_config(site.config.read_text().replace('skip_exts = [".png"]', 'skip_exts = [".png", ".txt"]'))
+    _, err = _build_incremental(site)
+    assert "alpha: unchanged" not in err and "beta: unchanged" not in err
+
+
+def test_incremental_build_follows_issue_list(site):
+    _build_incremental(site)
+    site.set_gh("beta", [gh_row(8, "beta の新しい問い", "2026-04-01T00:00:00Z")])
+    _, err = _build_incremental(site)
+    assert "build skipped" not in err

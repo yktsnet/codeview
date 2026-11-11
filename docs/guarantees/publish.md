@@ -26,6 +26,6 @@
 | `publish --if-changed` は、前回の配信から変更が無ければ push せずに終わる | `test_publish_if_changed_skips_without_changes` |
 | `publish --if-changed` は Issue だけの更新では push しない | `test_publish_if_changed_skips_issue_only_change` |
 | `check_every_hours` を持つアカウントのリポの変化は、前回そのアカウントを見てから間隔が経つまで見ない | `test_publish_checks_account_at_its_interval` |
-| `check_every_hours` を持つアカウントは、定期実行の起動のずれを見込み、間隔より5分短い時間が経っていれば見て、変化があれば配信する | `test_publish_checks_account_at_its_interval` |
+| `check_every_hours` を持つアカウントは、定期実行の起動のずれを見込み、間隔より5分短い時間が経っていれば見て、変化があれば配信する | `test_publish_checks_account_at_its_interval`, `test_publish_check_allows_five_minutes_of_startup_drift` |
 | 間隔の無いアカウントの変化は、次の実行で配信する | `test_publish_checks_account_at_its_interval` |
 | 旧形式の状態ファイルは無いものとして扱い、配信する | `test_publish_if_changed_republishes_over_old_state` |

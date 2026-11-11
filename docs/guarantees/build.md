@@ -33,6 +33,7 @@
 | 保証 | 対応テスト |
 |---|---|
 | README のあるディレクトリのページには、一覧の下に README を描く | `test_readme_on_directory_page` |
+| 直下にファイルが無いディレクトリのページには、案内文を出す | `test_guide_on_directory_page_without_files` |
 | README の無いディレクトリのページには、一覧の先頭のファイルを README と同じ位置に描く | `test_readme_on_directory_page` |
 | 左の一覧で、中身がディレクトリ1つだけのディレクトリは、その子のディレクトリと連ねて `a/b/c` の1行にまとめる | `test_dir_only_chains_collapse_into_one_row` |
 | 左の一覧のディレクトリの連なりは、中身がディレクトリ1つだけでなくなるところで止まる | `test_dir_only_chains_collapse_into_one_row` |
