@@ -8,6 +8,10 @@
 | `build --incremental` は、Markdown が GitHub の URL で指す他のリポが変わったとき、指している側のリポも作り直す | `test_incremental_build_matches_full_build` |
 | `build --incremental` は、リポ単位の設定（`[scan.repos]`）が変わったリポを作り直す | `test_repo_scan_change_rebuilds_incrementally` |
 | `build --incremental` は、拡張が返した Issue の `targets` が変われば、リポの HEAD が同じでも、そのリポのページを作り直す | `test_incremental_build_follows_issue_targets` |
+| `build --incremental` は、リポの置き場所が変わったリポを作り直す | `test_incremental_build_follows_repo_location` |
+| `build --incremental` は、リポの属するアカウントが変わったリポを作り直す | `test_incremental_build_follows_account` |
+| `build --incremental` は、本体のコードが変わったとき、すべてのリポを作り直す | `test_incremental_build_follows_code` |
+| `build --incremental` は、`[scan.repos]` 以外の設定が変わったとき、すべてのリポを作り直す | `test_incremental_build_follows_other_config` |
 
 ## `build --incremental` の出力
 

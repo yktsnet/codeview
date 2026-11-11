@@ -112,6 +112,35 @@ def test_publish_checks_account_at_its_interval(site, tmp_path):
     assert git(remote, "rev-parse", "deploy") != second
 
 
+def test_publish_check_allows_five_minutes_of_startup_drift(site, tmp_path):
+    site.write_config(
+        site.config.read_text().replace(
+            'gh_config_dir = "', 'check_every_hours = 2\ngh_config_dir = "', 1
+        )
+    )
+    remote = _with_remote(site, tmp_path)
+    site.run("-m", "codeview", "publish", "--if-changed")
+    first = git(remote, "rev-parse", "deploy")
+    commit(site.home / "work" / "beta", {"new.py": "n = 1\n"})
+    path = _state(site, tmp_path)
+
+    # 間隔より5分を超えて短ければ、まだ見ない
+    state = json.loads(path.read_text())
+    state["accounts"]["work"]["checked"] = int(time.time()) - 2 * 3600 + 5 * 60 + 30
+    path.write_text(json.dumps(state))
+    proc = site.run("-m", "codeview", "publish", "--if-changed")
+    assert "skipped" in proc.stdout
+    assert git(remote, "rev-parse", "deploy") == first
+
+    # 間隔より5分以内の短さなら見る
+    state = json.loads(path.read_text())
+    state["accounts"]["work"]["checked"] = int(time.time()) - 2 * 3600 + 5 * 60 - 30
+    path.write_text(json.dumps(state))
+    proc = site.run("-m", "codeview", "publish", "--if-changed")
+    assert "pushed" in proc.stdout
+    assert git(remote, "rev-parse", "deploy") != first
+
+
 def test_publish_if_changed_republishes_over_old_state(site, tmp_path):
     # ハッシュだけを書いていた旧形式の状態は、無いものとして配信する
     remote = _with_remote(site, tmp_path)

@@ -23,11 +23,3 @@ codeview が外へ約束している振る舞いと、それを守るテスト�
 | [plugins](plugins.md) |
 | [publish](publish.md) |
 | [sessions](sessions.md) |
-
-## Gaps
-
-- 生成物が 20,000 ファイルを超えたとき、`publish` が push せずに非0で終わること。見本に 2 万件のファイルを作るとテストが重くなりすぎるため見送った
-- 直下にファイルが無いディレクトリのページに案内文を出すこと。`test_readme_on_directory_page` は、ファイルのあるディレクトリに案内文が出ないことしか確かめていない
-- `build --incremental` が、リポの置き場所・アカウント・本体のコード・`[scan.repos]` 以外の設定・Issue の一覧が変わったときにも作り直すこと。テストは HEAD・GitHub の URL で指す他のリポ・`[scan.repos]`・拡張の Issue の `targets` の変化しか確かめていない
-- `check_every_hours` の確認で、起動のずれを見込む分が5分であること。`test_publish_checks_account_at_its_interval` は、間隔より1分短い時に見ることと、直後には見ないことしか確かめていない
-- 拡張が返した Issue の `waits` の表示が、待っている Issue のページへのリンクであること。`test_issue_source_next_to_config` は `waits on <リポ> #<番号>` の文字が出ることしか確かめていない

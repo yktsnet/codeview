@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import textwrap
 from pathlib import Path
 
@@ -43,6 +44,10 @@ def test_issue_source_next_to_config(site):
     assert "ext first ok" in listing and "ext second" in listing
     second = (public / "issues" / "me" / "alpha" / "2.html").read_text()
     assert "waits on alpha #1" in second
+    m = re.search(r'<a class="wait" href="([^"]+)">waits on alpha #1</a>', second)
+    assert m and (public / "issues" / "me" / "alpha" / m.group(1)).resolve() == (
+        public / "issues" / "me" / "alpha" / "1.html"
+    ).resolve()
     # 一覧に無い先への依存は落とす
     assert "#99" not in second
     # 取り込み元が trusted を立てなければ、本文の HTML はエスケープされる
