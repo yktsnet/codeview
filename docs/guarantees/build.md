@@ -67,7 +67,8 @@
 | 画像ファイルのページはその画像を `<img>` で表示する | `test_images_are_copied_and_shown` |
 | 5 MiB を超える画像のページは画像を出さず `Too large to display` を出す | `test_images_are_copied_and_shown` |
 | `.svg` のページはコードとして描く | `test_images_are_copied_and_shown`, `test_html_file_page_renders_in_sandboxed_iframe` |
-| `.html` と `.htm` のファイルページは、ファイルの中身をそのまま `srcdoc` に入れた `<iframe>` を本文に出す | `test_html_file_page_renders_in_sandboxed_iframe` |
+| `.html` と `.htm` のファイルページは、ファイルの中身の末尾に高さを親へ送るスクリプト（`HTML_FIT_SCRIPT`）を足しただけのものを `srcdoc` に入れた `<iframe>` を本文に出す | `test_html_file_page_renders_in_sandboxed_iframe` |
+| `.html` と `.htm` のファイルページは、iframe の中身から送られた高さで iframe を伸ばすスクリプトを持つ（JavaScript が無ければ高さは画面の 80% のまま） | `test_html_file_page_renders_in_sandboxed_iframe` |
 | `.html` と `.htm` のファイルページの iframe の `sandbox` 属性は、`allow-scripts` を含む | `test_html_file_page_renders_in_sandboxed_iframe` |
 | `.html` と `.htm` のファイルページの iframe の `sandbox` 属性は、`allow-same-origin` を含まない | `test_html_file_page_renders_in_sandboxed_iframe` |
 | `.html` と `.htm` のファイルページでは、ハイライトしたソースも JavaScript なしで（`<details>` で）読める | `test_html_file_page_renders_in_sandboxed_iframe` |

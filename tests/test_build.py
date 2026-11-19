@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from conftest import commit, gh_row, git
+from codeview.render import HTML_FIT_SCRIPT
 
 
 def test_scans_children_and_skips(site):
@@ -216,7 +217,10 @@ def test_html_file_page_renders_in_sandboxed_iframe(site):
         page = (out / f"{name}.html").read_text()
         [frame] = _frames(page)
         # HTMLParser が属性の実体参照を戻すので、元の中身と比べられる
-        assert frame["srcdoc"] == HTML_DOC, name
+        assert frame["srcdoc"] == HTML_DOC + HTML_FIT_SCRIPT, name
+        # 中から送られた高さで親が iframe を伸ばす
+        assert "codeviewHeight" in HTML_FIT_SCRIPT and "postMessage" in HTML_FIT_SCRIPT
+        assert "addEventListener('message'" in page and "codeviewHeight" in page.split("</iframe>", 1)[1]
         tokens = frame["sandbox"].split()
         assert "allow-scripts" in tokens and "allow-same-origin" not in tokens
         # ソースも JavaScript なしで読める形で同じページにある

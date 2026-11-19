@@ -81,18 +81,34 @@ def is_html(path: str) -> bool:
     return path.lower().endswith((".html", ".htm"))
 
 
+# sandbox の外からは中身の高さを測れないので、中から親へ送らせる。送るのは数値だけ。
+# 末尾に足すので、閉じていない <script> や <!-- で終わるファイルでは呑まれ、高さは CSS の既定のまま残る
+HTML_FIT_SCRIPT = (
+    "<script>(()=>{let last=0;const send=()=>{"
+    # scrollHeight は枠の高さを下回らないので、はみ出していなければ <html> の箱の高さで縮める
+    "const d=document.documentElement;"
+    "const h=Math.ceil(d.scrollHeight>innerHeight?d.scrollHeight:d.getBoundingClientRect().height);"
+    "if(h!==last){last=h;parent.postMessage({codeviewHeight:h},'*');}};"
+    "addEventListener('load',send);"
+    "if(window.ResizeObserver){const r=new ResizeObserver(send);"
+    "r.observe(document.documentElement);if(document.body)r.observe(document.body);}"
+    "send();})();</script>"
+)
+
+
 def render_html_page(path: str, data: bytes) -> tuple[str, str | None]:
     """描画した HTML の iframe と、折りたたんだソースを返す。
 
     allow-same-origin を付けないので、中のスクリプトは origin が不透明になり、
-    codeview の Cookie や親ページに触れない。
+    codeview の Cookie や親ページに触れない。中身の末尾には高さを親へ知らせる
+    `HTML_FIT_SCRIPT` を足し、親（FILE_SCRIPT）が iframe を中身の高さまで伸ばす。
     """
     text = data.decode("utf-8", "replace")
     code, lang = render_code_lang(path, data)
     body = (
         '<iframe class="htmlview" sandbox="allow-scripts" '
         f'title="{html.escape(path.split("/")[-1], quote=True)}" '
-        f'srcdoc="{html.escape(text, quote=True)}"></iframe>'
+        f'srcdoc="{html.escape(text + HTML_FIT_SCRIPT, quote=True)}"></iframe>'
         f'<details class="htmlsrc"><summary>Source</summary>{code}</details>'
     )
     return body, lang

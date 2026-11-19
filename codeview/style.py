@@ -213,7 +213,7 @@ body:not(.lnjs) .hl pre > span[id^="ln-"]:target,
 .nowrap .hl pre > span.hit { min-width: calc(100% + 2rem); }
 
 /* ---------- html ---------- */
-/* 中身の高さは sandbox の外から測れないので、画面に対する固定の高さにして中で送る */
+/* 中身の高さは FILE_SCRIPT が中から受け取って伸ばす。JS が無いときと届くまでは画面に対する固定の高さで中を送る */
 .htmlview {
   display: block; width: 100%; height: 80vh; margin: 1em 0;
   border: 1px solid var(--line); border-radius: var(--r-sm); background: #fff;
