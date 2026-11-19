@@ -222,6 +222,28 @@ FILE_SCRIPT = r"""
     if (mark(n)) history.replaceState(null, '', '#ln-' + n);
   });
 
+  // iframe を中身の高さまで伸ばし、スクロールを外側の1本にまとめる。届くまでは CSS の 80vh のまま
+  const frames = [...document.querySelectorAll('iframe.htmlview')];
+  if (frames.length) {
+    const CAP = 50000;
+    const state = new Map();
+    window.addEventListener('message', (ev) => {
+      const f = frames.find((x) => x.contentWindow === ev.source);
+      const h = ev.data && ev.data.codeviewHeight;
+      if (!f || typeof h !== 'number' || !isFinite(h) || h <= 0) return;
+      // 100vh に余白を足した中身は、伸ばすたびに同じ幅だけ伸び返す。同じ伸びが続いたら止める
+      const s = state.get(f) || { cur: f.offsetHeight, step: 0, same: 0, frozen: false };
+      if (s.frozen) return;
+      const step = h - s.cur;
+      s.same = step > 0 && step === s.step ? s.same + 1 : 0;
+      s.step = step;
+      if (s.same >= 2) { s.frozen = true; state.set(f, s); return; }
+      s.cur = Math.min(h, CAP);
+      state.set(f, s);
+      f.style.height = s.cur + 'px';
+    });
+  }
+
   const wrap = document.getElementById('wrap');
   if (wrap) {
     const KEY = 'codeview.wrap';
